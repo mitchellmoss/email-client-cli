@@ -1,0 +1,18 @@
+{
+  "name": "email-parser-examples",
+  "version": "1.0.0",
+  "description": "Email parsing examples for Node.js",
+  "main": "nodejs_email_parser_example.js",
+  "scripts": {
+    "parse": "node nodejs_email_parser_example.js"
+  },
+  "dependencies": {
+    "mailparser": "^3.6.5",
+    "cheerio": "^1.0.0-rc.12",
+    "csv-parse": "^5.5.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

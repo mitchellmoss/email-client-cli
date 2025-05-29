@@ -1,0 +1,20 @@
+# Core dependencies
+anthropic>=0.18.0
+imap-tools>=1.6.0
+beautifulsoup4>=4.12.0
+python-dotenv>=1.0.0
+APScheduler>=3.10.0
+
+# Email parsing
+lxml>=5.0.0
+html5lib>=1.1
+
+# Logging and utilities
+colorlog>=6.8.0
+retry>=0.9.2
+
+# Development dependencies
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+black>=24.0.0
+flake8>=7.0.0
