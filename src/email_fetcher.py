@@ -62,7 +62,7 @@ class EmailFetcher:
         try:
             # Connect to mailbox
             with MailBox(self.server, self.port).login(self.email, self.password) as mailbox:
-                logger.info(f"Connected to {self.server} as {self.email}")
+                logger.info(f"Connected to {self.server} as {self.email} (read-only mode)")
                 
                 # Calculate date range
                 since_date = datetime.now() - timedelta(days=since_days)
@@ -77,8 +77,8 @@ class EmailFetcher:
                     date_gte=since_date.date()
                 )
                 
-                # Fetch matching emails
-                for msg in mailbox.fetch(criteria):
+                # Fetch matching emails without marking as read
+                for msg in mailbox.fetch(criteria, mark_seen=False):
                     try:
                         # Check if subject contains "New customer order"
                         subject = self._decode_header_value(msg.subject)
