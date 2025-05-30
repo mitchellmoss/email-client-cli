@@ -16,6 +16,7 @@ from src.email_parser import TileProDepotParser
 from src.order_formatter import OrderFormatter
 from src.email_sender import EmailSender
 from src.claude_processor import ClaudeProcessor
+from src.order_tracker import OrderTracker
 from src.utils.logger import setup_logger
 
 # Load environment variables
@@ -49,6 +50,11 @@ class EmailProcessor:
         
         self.cs_email = os.getenv('CS_EMAIL')
         
+        # Initialize order tracker
+        self.order_tracker = OrderTracker(
+            db_path=os.getenv('ORDER_TRACKING_DB', 'order_tracking.db')
+        )
+        
     def process_emails(self):
         """Main processing function to check and process new emails."""
         logger.info("Starting email processing cycle...")
@@ -70,17 +76,38 @@ class EmailProcessor:
                         )
                         
                         if order_details:
+                            order_id = order_details.get('order_id', 'Unknown')
+                            
+                            # Check if order has already been sent
+                            is_sent, existing_order = self.order_tracker.has_order_been_sent(order_id)
+                            if is_sent:
+                                logger.info(f"Order {order_id} has already been sent on {existing_order.get('created_at')}, skipping...")
+                                continue
+                            
                             # Format the order for CS team
                             formatted_order = self.formatter.format_order(order_details)
                             
                             # Send to CS team
-                            self.email_sender.send_order_to_cs(
+                            success = self.email_sender.send_order_to_cs(
                                 recipient=self.cs_email,
                                 order_text=formatted_order,
-                                original_order_id=order_details.get('order_id', 'Unknown')
+                                original_order_id=order_id
                             )
                             
-                            logger.info(f"Successfully processed and sent order {order_details.get('order_id')}")
+                            if success:
+                                # Track the sent order
+                                if self.order_tracker.mark_order_as_sent(
+                                    order_id=order_id,
+                                    email_data=email_data,
+                                    order_details=order_details,
+                                    formatted_content=formatted_order,
+                                    recipient=self.cs_email
+                                ):
+                                    logger.info(f"Successfully processed and sent order {order_id}")
+                                else:
+                                    logger.warning(f"Order {order_id} sent but failed to track in database")
+                            else:
+                                logger.error(f"Failed to send order {order_id} to CS")
                         else:
                             logger.warning(f"Failed to extract order details from email: {email_data['subject']}")
                     else:
@@ -100,6 +127,15 @@ def main():
     """Main entry point for the application."""
     logger.info("Starting Email Client CLI - Tile Pro Depot Order Processor")
     
+    # Display order tracking statistics
+    try:
+        tracker = OrderTracker()
+        stats = tracker.get_statistics(days=7)
+        logger.info(f"Last 7 days: {stats.get('total_orders_sent', 0)} orders sent, "
+                   f"{stats.get('duplicate_attempts_blocked', 0)} duplicates blocked")
+    except Exception as e:
+        logger.warning(f"Could not retrieve order statistics: {e}")
+    
     # Validate required environment variables
     required_vars = [
         'IMAP_SERVER', 'EMAIL_ADDRESS', 'EMAIL_PASSWORD',
@@ -114,6 +150,15 @@ def main():
     
     # Initialize processor
     processor = EmailProcessor()
+    
+    # Display order tracking statistics on startup
+    stats = processor.order_tracker.get_statistics()
+    logger.info(f"Order Tracking Statistics:")
+    logger.info(f"  Total orders processed: {stats.get('total_orders', 0)}")
+    logger.info(f"  Orders today: {stats.get('orders_today', 0)}")
+    logger.info(f"  Orders this week: {stats.get('orders_this_week', 0)}")
+    if stats.get('most_recent_order'):
+        logger.info(f"  Most recent order: {stats['most_recent_order']['order_id']} at {stats['most_recent_order']['sent_timestamp']}")
     
     # Check if running in single-run mode or scheduled mode
     if len(sys.argv) > 1 and sys.argv[1] == '--once':

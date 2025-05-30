@@ -29,7 +29,9 @@ python main.py
 - 🤖 **Intelligent Parsing**: Uses Claude AI to extract order details from complex HTML emails
 - 📦 **TileWare Product Detection**: Specifically identifies and processes orders containing TileWare products
 - 📧 **Automated Forwarding**: Sends formatted orders to customer service team
+- 🔄 **Duplicate Prevention**: Tracks sent orders to prevent duplicate processing
 - 📊 **Comprehensive Logging**: Detailed logging for monitoring and troubleshooting
+- 🗄️ **Order History**: SQLite database for tracking all processed orders
 
 ## Prerequisites
 
@@ -118,6 +120,9 @@ CHECK_INTERVAL_MINUTES=5  # How often to check for new emails
 # Logging
 LOG_LEVEL=INFO
 LOG_FILE=email_processor.log
+
+# Order Tracking Database
+ORDER_TRACKING_DB=order_tracking.db  # Optional: customize database location
 ```
 
 ### 4. Verify Setup
@@ -146,6 +151,24 @@ python main.py
 ### Run once (process current emails):
 ```bash
 python main.py --once
+```
+
+### Manage order tracking:
+```bash
+# View order statistics
+python src/manage_orders.py stats
+
+# List recent orders
+python src/manage_orders.py list
+
+# View specific order details
+python src/manage_orders.py view ORDER_ID
+
+# Check if an order has been sent
+python src/manage_orders.py check ORDER_ID
+
+# Clean up old orders (older than 90 days)
+python src/manage_orders.py cleanup --days 90
 ```
 
 ## 📧 Email Requirements
@@ -184,8 +207,10 @@ TileWare Promessa™ Series Tee Hook (#T101-211-PC)    3     $130.20
    - TileWare products (name, SKU, quantity)
    - Shipping address
    - Shipping method
-5. **Formatting**: Converts extracted data to CS team format
-6. **Email Sending**: Sends formatted order to CS team with both plain text and HTML versions
+5. **Duplicate Check**: Verifies order hasn't been sent before using SQLite database
+6. **Formatting**: Converts extracted data to CS team format
+7. **Email Sending**: Sends formatted order to CS team with both plain text and HTML versions
+8. **Order Tracking**: Records sent orders in database to prevent duplicate processing
 
 ## 📝 Output Format
 
@@ -214,6 +239,7 @@ email-client-cli/
 ├── requirements.txt        # Python dependencies
 ├── .env.example           # Environment template
 ├── .env                   # Your configuration (not in git)
+├── order_tracking.db      # SQLite database for order tracking
 ├── CLAUDE.md              # Detailed project documentation
 ├── README.md              # This file
 └── src/
@@ -223,6 +249,8 @@ email-client-cli/
     ├── claude_processor.py # Claude AI integration
     ├── order_formatter.py # Order formatting logic
     ├── email_sender.py    # SMTP email sending
+    ├── order_tracker.py   # Order tracking and duplicate prevention
+    ├── manage_orders.py   # Order management utility
     ├── test_connections.py # Connection testing utility
     └── utils/
         ├── __init__.py
@@ -265,6 +293,27 @@ email-client-cli/
    ```bash
    # Check last 7 days of emails
    python -c "from src.email_fetcher import EmailFetcher; import os; from dotenv import load_dotenv; load_dotenv(); f = EmailFetcher(os.getenv('IMAP_SERVER'), 993, os.getenv('EMAIL_ADDRESS'), os.getenv('EMAIL_PASSWORD')); print(f'Found {len(f.fetch_tile_pro_depot_emails(7))} emails')"
+   ```
+
+### Order Tracking Issues?
+
+1. **Order Already Sent Message**
+   - This is normal - the system prevents duplicate processing
+   - Check order details: `python src/manage_orders.py view ORDER_ID`
+   - View all sent orders: `python src/manage_orders.py list`
+
+2. **Database Errors**
+   - Ensure write permissions on `order_tracking.db`
+   - Check disk space
+   - Database corrupted? Delete and let it recreate (orders will need reprocessing)
+
+3. **Check Order Status**
+   ```bash
+   # Check if specific order was sent
+   python src/manage_orders.py check ORDER_ID
+   
+   # View order statistics
+   python src/manage_orders.py stats
    ```
 
 ## 📊 Monitoring

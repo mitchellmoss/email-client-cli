@@ -54,5 +54,5 @@ htmlcov/
 .DS_Store
 
 # Project specific
-processed_emails.db
+# Note: order_tracking.db is intentionally NOT ignored - it should be committed
 email_cache/
