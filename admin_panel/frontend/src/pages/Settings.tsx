@@ -74,6 +74,14 @@ export default function Settings() {
           log_level: config.processing?.log_level || 'INFO'
         }
       });
+      
+      // Also update email template if present
+      if (config.templates) {
+        setEmailTemplate({
+          subject: config.templates.subject || 'Order #{order_id} - {customer_name}',
+          body: config.templates.body || ''
+        });
+      }
     }
   }, [config]);
 
@@ -152,7 +160,10 @@ export default function Settings() {
   });
 
   const handleSaveConfig = () => {
-    updateConfigMutation.mutate(emailConfig);
+    updateConfigMutation.mutate({
+      ...emailConfig,
+      templates: emailTemplate
+    });
   };
 
   if (configLoading) {

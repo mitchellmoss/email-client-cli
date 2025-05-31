@@ -59,6 +59,19 @@ async def get_email_config(
         "processing": {
             "check_interval_minutes": int(os.getenv("CHECK_INTERVAL_MINUTES", "5")),
             "log_level": os.getenv("LOG_LEVEL", "INFO")
+        },
+        "templates": {
+            "subject": os.getenv("EMAIL_SUBJECT_TEMPLATE", "TileWare Order #{order_id} - Action Required"),
+            "body": os.getenv("EMAIL_BODY_TEMPLATE", """Hi CS - Please place this order:
+{products}
+
+SHIP TO:
+{shipping_method}
+
+{customer_name}
+{shipping_address}
+
+::::""")
         }
     }
     
@@ -109,6 +122,13 @@ async def update_email_config(
                 set_key(env_path, "CHECK_INTERVAL_MINUTES", str(config["processing"]["check_interval_minutes"]))
             if "log_level" in config["processing"]:
                 set_key(env_path, "LOG_LEVEL", config["processing"]["log_level"])
+        
+        # Update email templates
+        if "templates" in config:
+            if "subject" in config["templates"]:
+                set_key(env_path, "EMAIL_SUBJECT_TEMPLATE", config["templates"]["subject"])
+            if "body" in config["templates"]:
+                set_key(env_path, "EMAIL_BODY_TEMPLATE", config["templates"]["body"])
         
         return {"message": "Configuration updated successfully"}
         
