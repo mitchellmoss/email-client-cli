@@ -46,7 +46,8 @@ class EmailProcessor:
             smtp_server=os.getenv('SMTP_SERVER'),
             smtp_port=int(os.getenv('SMTP_PORT', 587)),
             username=os.getenv('SMTP_USERNAME'),
-            password=os.getenv('SMTP_PASSWORD')
+            password=os.getenv('SMTP_PASSWORD'),
+            signature_html=os.getenv('EMAIL_SIGNATURE_TEXT')
         )
         
         self.cs_email = os.getenv('CS_EMAIL')

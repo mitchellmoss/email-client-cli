@@ -39,8 +39,22 @@ logger = setup_logger(__name__)
 class PDFOrderFormFiller:
     """Fills out Laticrete PDF order forms with order data using multiple methods."""
     
-    def __init__(self, template_path: str = "resources/laticrete/lat_blank_orderform.pdf"):
+    def __init__(self, template_path: str = None):
         """Initialize with path to blank order form template."""
+        if template_path is None:
+            # Use absolute path based on project structure
+            from pathlib import Path
+            # Try to find the project root by looking for the main.py file
+            current = Path(__file__).parent
+            while current != current.parent:
+                if (current / "main.py").exists() and (current / "resources" / "laticrete").exists():
+                    template_path = str(current / "resources" / "laticrete" / "lat_blank_orderform.pdf")
+                    break
+                current = current.parent
+            else:
+                # Fallback to relative path
+                template_path = "resources/laticrete/lat_blank_orderform.pdf"
+        
         self.template_path = Path(template_path)
         if not self.template_path.exists():
             raise FileNotFoundError(f"PDF template not found at {self.template_path}")
@@ -313,8 +327,8 @@ class PDFOrderFormFiller:
                 f'Quantity OrderedRow{row_num}': str(product.get('quantity', '')),
                 f'DescriptionRow{row_num}': product.get('name', ''),
                 f'Item NumberRow{row_num}': product.get('sku', ''),
-                f'Unit PriceRow{row_num}': product.get('price', ''),
-                f'AmountRow{row_num}': self._calculate_amount(product.get('quantity', 0), product.get('price', '0'))
+                f'Unit PriceRow{row_num}': product.get('list_price', product.get('price', '')),
+                f'AmountRow{row_num}': self._calculate_amount(product.get('quantity', 0), product.get('list_price', product.get('price', '0')))
             })
         
         return field_mappings
@@ -391,7 +405,7 @@ class PDFOrderFormFiller:
                 c.drawString(450, y_pos, product.get('sku', ''))
                 
                 # Unit Price (right columns)
-                c.drawString(520, y_pos, product.get('price', ''))
+                c.drawString(520, y_pos, product.get('list_price', product.get('price', '')))
                 
                 # Amount (far right - removed as it exceeds page width)
                 # amount = self._calculate_amount(product.get('quantity', 0), product.get('price', '0'))

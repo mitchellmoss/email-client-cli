@@ -29,7 +29,8 @@ class LatricreteProcessor:
             smtp_server=os.getenv('SMTP_SERVER'),
             smtp_port=int(os.getenv('SMTP_PORT', 587)),
             username=os.getenv('SMTP_USERNAME'),
-            password=os.getenv('SMTP_PASSWORD')
+            password=os.getenv('SMTP_PASSWORD'),
+            signature_html=os.getenv('EMAIL_SIGNATURE_TEXT')
         )
         self.laticrete_cs_email = os.getenv('LATICRETE_CS_EMAIL')
         

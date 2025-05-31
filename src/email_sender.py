@@ -22,7 +22,7 @@ logger = setup_logger(__name__)
 class EmailSender:
     """Send formatted orders via SMTP."""
     
-    def __init__(self, smtp_server: str, smtp_port: int, username: str, password: str):
+    def __init__(self, smtp_server: str, smtp_port: int, username: str, password: str, signature_html: Optional[str] = None):
         """
         Initialize email sender.
         
@@ -31,12 +31,14 @@ class EmailSender:
             smtp_port: SMTP server port
             username: Email username for authentication
             password: Email password or app password
+            signature_html: Optional custom HTML signature
         """
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.username = username
         self.password = password
         self.from_address = username
+        self.signature_html = signature_html
         
     def send_order_to_cs(self, recipient: str, order_text: str, 
                         original_order_id: str = "Unknown") -> bool:
@@ -211,29 +213,34 @@ Instagram: https://www.instagram.com/installations_plus/
     
     def _add_html_signature_to_content(self, html_content: str) -> str:
         """Add HTML signature to any HTML content."""
-        signature_html = """
-        <div style="display: flex; align-items: center; padding: 10px; border-top: 2px solid #0078d4; margin-top: 30px;">
-            <div style="margin-right: 20px;">
-                <img src="https://images.squarespace-cdn.com/content/v1/56ce6172c2ea51d77a671500/1533871562097-SIYDUTPEOQC3BIIQU126/Installations+Plus+logo+-+color+-+close+crop.png?format=1500w" alt="Installations Plus" width="120" height="60">
-            </div>
-            <div style="font-size: 14px; line-height: 1.5;">
-                <div style="font-size: 18px; font-weight: bold; color: #0078d4; margin-bottom: 4px;">Mitchell Moss</div>
-                <div style="color: #555; margin-bottom: 16px;">Installations Plus Inc.</div>
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    <a href="tel:774-233-0210" style="color: #0078d4; text-decoration: none; margin-right: 8px;">774-233-0210</a>
-                    <a href="tel:508-733-5839" style="color: #0078d4; text-decoration: none; margin-right: 8px;">508-733-5839</a>
-                    <a href="mailto:mitchell@installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">mitchell@installplusinc.com</a>
-                    <a href="https://installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">installplusinc.com</a>
-                    <span>131 Flanders Rd, Westborough, MA, 01581</span>
+        # Use custom signature if provided, otherwise use default
+        if self.signature_html:
+            signature_html = self.signature_html
+        else:
+            # Default signature (fallback)
+            signature_html = """
+            <div style="display: flex; align-items: center; padding: 10px; border-top: 2px solid #0078d4; margin-top: 30px;">
+                <div style="margin-right: 20px;">
+                    <img src="https://images.squarespace-cdn.com/content/v1/56ce6172c2ea51d77a671500/1533871562097-SIYDUTPEOQC3BIIQU126/Installations+Plus+logo+-+color+-+close+crop.png?format=1500w" alt="Installations Plus" width="120" height="60">
                 </div>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <a href="https://www.linkedin.com/company/10612759?trk=vsrp_companies_cluster_name&trkInfo=VSRPsearchId%3A185298431468515352362%2CVSRPtargetId%3A10612759%2CVSRPcmpt%3Acompanies_cluster"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="20" height="20"></a>
-                    <a href="http://www.facebook.com/installplusinc"><img src="https://cdn-icons-png.flaticon.com/512/174/174848.png" alt="Facebook" width="20" height="20"></a>
-                    <a href="https://www.instagram.com/installations_plus/"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="20" height="20"></a>
+                <div style="font-size: 14px; line-height: 1.5;">
+                    <div style="font-size: 18px; font-weight: bold; color: #0078d4; margin-bottom: 4px;">Mitchell Moss</div>
+                    <div style="color: #555; margin-bottom: 16px;">Installations Plus Inc.</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <a href="tel:774-233-0210" style="color: #0078d4; text-decoration: none; margin-right: 8px;">774-233-0210</a>
+                        <a href="tel:508-733-5839" style="color: #0078d4; text-decoration: none; margin-right: 8px;">508-733-5839</a>
+                        <a href="mailto:mitchell@installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">mitchell@installplusinc.com</a>
+                        <a href="https://installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">installplusinc.com</a>
+                        <span>131 Flanders Rd, Westborough, MA, 01581</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <a href="https://www.linkedin.com/company/10612759?trk=vsrp_companies_cluster_name&trkInfo=VSRPsearchId%3A185298431468515352362%2CVSRPtargetId%3A10612759%2CVSRPcmpt%3Acompanies_cluster"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="20" height="20"></a>
+                        <a href="http://www.facebook.com/installplusinc"><img src="https://cdn-icons-png.flaticon.com/512/174/174848.png" alt="Facebook" width="20" height="20"></a>
+                        <a href="https://www.instagram.com/installations_plus/"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="20" height="20"></a>
+                    </div>
                 </div>
             </div>
-        </div>
-        """
+            """
         
         # If HTML content has closing body tag, insert before it
         if '</body>' in html_content:

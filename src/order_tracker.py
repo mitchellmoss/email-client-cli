@@ -138,12 +138,15 @@ class OrderTracker:
                     # Prepare tileware products as JSON
                     products_json = json.dumps(order_details.get('tileware_products', []))
                     
+                    # Store full order data as JSON for Laticrete orders
+                    order_data_json = json.dumps(order_details) if order_id.startswith('LAT-') else None
+                    
                     cursor.execute("""
                         INSERT OR REPLACE INTO sent_orders (
                             order_id, email_subject, sent_to, customer_name,
                             tileware_products, order_total, formatted_content,
-                            email_uid
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            email_uid, order_data
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         order_id,
                         email_data.get('subject', ''),
@@ -152,7 +155,8 @@ class OrderTracker:
                         products_json,
                         order_details.get('total', ''),
                         formatted_content,
-                        email_data.get('uid', '')
+                        email_data.get('uid', ''),
+                        order_data_json
                     ))
                     
                     conn.commit()
@@ -221,6 +225,9 @@ class OrderTracker:
                     # Parse JSON products
                     if details.get('tileware_products'):
                         details['tileware_products'] = json.loads(details['tileware_products'])
+                    # Parse order_data if present
+                    if details.get('order_data'):
+                        details['order_data'] = json.loads(details['order_data'])
                     return details
                 return None
                 

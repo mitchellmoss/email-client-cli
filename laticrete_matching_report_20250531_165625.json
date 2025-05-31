@@ -1,0 +1,128 @@
+{
+  "timestamp": "2025-05-31T16:56:25.264671",
+  "summary": {
+    "total_tested": 10,
+    "matched": 8,
+    "unmatched": 2,
+    "success_rate": 80.0
+  },
+  "detailed_results": [
+    {
+      "original": "LATICRETE HYDRO BAN Preformed Niches (various sizes) - Square 12\" x 12\"",
+      "matched": true,
+      "found_name": "HYDRO BAN PREFORMED NICHE 12X12IN/30X30CM SQUARE",
+      "found_sku": "9311-1212-S",
+      "price": "$49.82"
+    },
+    {
+      "original": "LATICRETE HYDRO BAN Preformed Niche 16\" x 16\" Square",
+      "matched": true,
+      "found_name": "HYDRO BAN PREFORMED NICHE 12X12IN/30X30CM SQUARE",
+      "found_sku": "9311-1212-S",
+      "price": "$49.82"
+    },
+    {
+      "original": "LATICRETE HYDRO BAN Preformed Seat Triangle 16\" x 16\"",
+      "matched": true,
+      "found_name": "HYDRO BAN PREFORMED SEAT 16X16IN/41X41CM TRIANGLE",
+      "found_sku": "9301-1616-T",
+      "price": "$103.28"
+    },
+    {
+      "original": "LATICRETE STRATA MAT Uncoupling Membrane",
+      "matched": false,
+      "alternatives": [
+        {
+          "sku": "0179-1082-H",
+          "name": "STRATAHEAT MAT 10PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "price": "$117.82",
+          "unit": "10XCARTON",
+          "brand": "STRATAHEAT MAT 10PCS X 8.6 SF",
+          "size": "8.6SF",
+          "weight": "19LBS",
+          "item_upc": "720912061745",
+          "units_per_pallet": "14",
+          "pallet_weight": "266LBS",
+          "_combined_name": "STRATAHEAT MAT 10PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "_search_text": "STRATAHEAT MAT 10PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "_fuzzy_text": "STRATAHEAT MAT 10PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "match_score": 0.47
+        },
+        {
+          "sku": "0179-5082-H",
+          "name": "STRATAHEAT MAT 50PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "price": "$537.50",
+          "unit": "50XCARTON",
+          "brand": "STRATAHEAT MAT 50PCS X 8.6 SF",
+          "size": "8.6SF",
+          "weight": "95",
+          "item_upc": "720912065910",
+          "units_per_pallet": "7",
+          "pallet_weight": "665",
+          "_combined_name": "STRATAHEAT MAT 50PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "_search_text": "STRATAHEAT MAT 50PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "_fuzzy_text": "STRATAHEAT MAT 50PCS X 8.6 SF STRATAHEAT MAT 86 SF",
+          "match_score": 0.47
+        }
+      ]
+    },
+    {
+      "original": "LATICRETE STRATA MAT - 150 sq ft roll",
+      "matched": true,
+      "found_name": "STRATAMAT MAT/150SF/45INX40FT",
+      "found_sku": "0177-0150-2",
+      "price": "$155.21"
+    },
+    {
+      "original": "Laticrete 254 Platinum Thinset Mortar - 50 lb",
+      "matched": false,
+      "alternatives": [
+        {
+          "sku": "3142-0001-2",
+          "name": "SPECTRALOCK 1 PLATINUM 1 GAL SL1 PLATINUM 1 GAL",
+          "price": "$77.95",
+          "unit": "PAIL",
+          "brand": "SPECTRALOCK 1 PLATINUM 1 GAL",
+          "size": "1 GAL",
+          "weight": "14.2 LB",
+          "item_upc": "720912060120",
+          "units_per_pallet": "125",
+          "pallet_weight": "1775 LB",
+          "color": "PLATINUM",
+          "_combined_name": "SPECTRALOCK 1 PLATINUM 1 GAL SL1 PLATINUM 1 GAL",
+          "_search_text": "SPECTRALOCK 1 PLATINUM 1 GAL SL1 PLATINUM 1 GAL",
+          "_fuzzy_text": "SPECTRALOCK 1 PLATINUM 1 GAL SL1 PLATINUM 1 GAL",
+          "match_score": 0.31
+        }
+      ]
+    },
+    {
+      "original": "LATICRETE 254 PLATINUM PLUS GREY 25LB",
+      "matched": true,
+      "found_name": "254 PLATINUM PLUS GREY/25LB/11.3KG",
+      "found_sku": "0234-0025-21",
+      "price": "$40.48"
+    },
+    {
+      "original": "LATICRETE HYDRO BAN Sheet Waterproofing Membrane 5' x 100'",
+      "matched": true,
+      "found_name": "HYDRO BAN SHEET MEMBRANE 108' 3'3\"X 33' = 108 FT\u00c2\u00b2/1M X 10M",
+      "found_sku": "9455-0108-2",
+      "price": "$149.93"
+    },
+    {
+      "original": "LATICRETE SpectraLOCK PRO Premium Grout",
+      "matched": true,
+      "found_name": "SPECTRALOCK PRO PREMIUM GROUT CARTON/4X94.7OZ/4X2.8L",
+      "found_sku": "S-225CQ-NS-00",
+      "price": "$91.64"
+    },
+    {
+      "original": "LATICRETE Permacolor Select Grout - Various Colors",
+      "matched": true,
+      "found_name": "PERMACOLOR SELECT GROUT PERMACOLOR SELECT - 10LB BAG",
+      "found_sku": "2600-0010-2",
+      "price": "$12.40"
+    }
+  ]
+}

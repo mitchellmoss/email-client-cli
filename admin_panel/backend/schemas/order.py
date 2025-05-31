@@ -8,7 +8,7 @@ from datetime import datetime
 class OrderProduct(BaseModel):
     """Order product schema."""
     name: str
-    sku: str
+    sku: Optional[str] = None
     quantity: int
     price: Optional[str] = None
 

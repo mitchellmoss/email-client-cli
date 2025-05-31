@@ -14,6 +14,15 @@ sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 from src.order_tracker import OrderTracker
 from src.email_sender import EmailSender
 from src.order_formatter import OrderFormatter
+import os
+import logging
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
 try:
     from ..config import settings
 except ImportError:
@@ -99,34 +108,40 @@ class OrderService:
     
     def resend_order(self, order_id: str) -> bool:
         """Resend an order email."""
+        logger.info(f"Resend requested for order: {order_id}")
+        
+        # Try to find the order with the original ID first (since DB stores with prefixes)
         order = self.order_tracker.get_order_details(order_id)
+        
         if not order:
-            return False
+            # If not found and has a prefix, try without it
+            if '-' in order_id:
+                parts = order_id.split('-')
+                if len(parts) == 2 and parts[1].isdigit():
+                    clean_order_id = parts[1]
+                    order = self.order_tracker.get_order_details(clean_order_id)
+            
+            if not order:
+                logger.error(f"Order not found: {order_id}")
+                return False
+        
+        logger.info(f"Order found: {order.get('order_id')}, has order_data: {bool(order.get('order_data'))}")
         
         try:
-            # Initialize email sender
-            sender = EmailSender()
-            
-            # Send the formatted content
-            success = sender.send_order_email(
-                to_email=order['sent_to'],
-                order_content=order['formatted_content'],
-                order_id=order_id
-            )
-            
-            if success:
-                # Log the resend action
-                self.order_tracker._log_action(
-                    order_id,
-                    "resent",
-                    f"Order resent to {order['sent_to']}"
-                )
-            
-            return success
+            # Check if this is a Laticrete order
+            if order_id.startswith('LAT-') and order.get('order_data'):
+                # Handle Laticrete orders with PDF regeneration
+                logger.info(f"Processing as Laticrete order")
+                return self._resend_laticrete_order(order)
+            else:
+                # Handle regular TileWare orders
+                logger.info(f"Processing as TileWare order")
+                return self._resend_tileware_order(order, order_id)
             
         except Exception as e:
+            logger.error(f"Exception in resend_order: {e}", exc_info=True)
             self.order_tracker._log_action(
-                order_id,
+                order.get('order_id', order_id),
                 "resend_error",
                 str(e)
             )
@@ -152,4 +167,92 @@ class OrderService:
             
         except Exception as e:
             self.db.rollback()
+            return False
+    
+    def _resend_tileware_order(self, order: Dict[str, Any], order_id: str) -> bool:
+        """Resend a TileWare order."""
+        # Get email signature from settings
+        email_signature = os.getenv('EMAIL_SIGNATURE_TEXT', '')
+        
+        # Initialize email sender with environment variables and signature
+        sender = EmailSender(
+            smtp_server=os.getenv('SMTP_SERVER'),
+            smtp_port=int(os.getenv('SMTP_PORT', 587)),
+            username=os.getenv('SMTP_USERNAME'),
+            password=os.getenv('SMTP_PASSWORD'),
+            signature_html=email_signature if email_signature else None
+        )
+        
+        # Send the formatted content
+        success = sender.send_order_to_cs(
+            recipient=order['sent_to'],
+            order_text=order['formatted_content'],
+            original_order_id=order_id
+        )
+        
+        if success:
+            # Log the resend action using the actual order ID from the database
+            self.order_tracker._log_action(
+                order.get('order_id', order_id),
+                "resent",
+                f"Order resent to {order['sent_to']}"
+            )
+        
+        return success
+    
+    def _resend_laticrete_order(self, order: Dict[str, Any]) -> bool:
+        """Resend a Laticrete order with PDF regeneration."""
+        # Import here to avoid circular imports and module issues
+        import sys
+        import os
+        from pathlib import Path
+        
+        # Ensure the src module is in the path
+        project_root = Path(__file__).parent.parent.parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        
+        from src.laticrete_processor import LatricreteProcessor
+        
+        try:
+            # Get the stored order data
+            order_data = order.get('order_data')
+            if not order_data:
+                logger.error(f"No order_data found for Laticrete order {order.get('order_id')}")
+                # Fallback: try to reconstruct from available data
+                order_data = {
+                    'order_id': order['order_id'].replace('LAT-', ''),
+                    'customer_name': order['customer_name'],
+                    'laticrete_products': [],
+                    'shipping_address': {}
+                }
+            
+            logger.info(f"Resending Laticrete order {order.get('order_id')} with {len(order_data.get('laticrete_products', []))} products")
+            
+            # Initialize Laticrete processor
+            processor = LatricreteProcessor()
+            
+            # Process the order (enriches prices, fills PDF, sends email)
+            success = processor.process_order(order_data)
+            
+            if success:
+                # Log the resend action
+                self.order_tracker._log_action(
+                    order['order_id'],
+                    "resent",
+                    f"Laticrete order with PDF resent to {order['sent_to']}"
+                )
+                logger.info(f"Successfully resent Laticrete order {order.get('order_id')}")
+            else:
+                logger.error(f"Failed to resend Laticrete order {order.get('order_id')}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error resending Laticrete order {order.get('order_id')}: {e}", exc_info=True)
+            # Also log to a file for debugging
+            import traceback
+            with open('/tmp/laticrete_resend_error.log', 'w') as f:
+                f.write(f"Error resending Laticrete order {order.get('order_id')}: {e}\n")
+                f.write(traceback.format_exc())
             return False

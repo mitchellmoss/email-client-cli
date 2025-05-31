@@ -60,10 +60,18 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "email_processor.log"
     
+    # Email Templates (configurable via admin UI)
+    tileware_email_subject: str = "TileWare Order #{order_id} - Action Required"
+    tileware_email_body: str = "{products}\n\nSHIP TO:\n{shipping_method}\n\n{shipping_address}\n\n::::"
+    laticrete_email_subject: str = "Laticrete Order #{order_id} - {customer_name}"
+    laticrete_email_body: str = "New Laticrete Order\n\nPlease find the attached order form for processing.\n\nCustomer: {customer_name}\nOrder ID: {order_id}\n\nPlease verify pricing before processing."
+    email_signature_text: str = ""
+    
     class Config:
         env_file = str(PROJECT_ROOT / ".env")
         case_sensitive = False
         env_file_encoding = 'utf-8'
+        extra = "allow"  # Allow extra fields from .env
 
 
 settings = Settings()

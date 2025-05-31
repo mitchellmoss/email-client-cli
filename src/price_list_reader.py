@@ -17,8 +17,22 @@ logger = setup_logger(__name__)
 class PriceListReader:
     """Reads and searches Laticrete price list Excel file."""
     
-    def __init__(self, price_list_path: str = "resources/laticrete/lat_price_list.xlsx"):
+    def __init__(self, price_list_path: str = None):
         """Initialize with path to price list Excel file."""
+        if price_list_path is None:
+            # Use absolute path based on project structure
+            from pathlib import Path
+            # Try to find the project root by looking for the main.py file
+            current = Path(__file__).parent
+            while current != current.parent:
+                if (current / "main.py").exists() and (current / "resources" / "laticrete").exists():
+                    price_list_path = str(current / "resources" / "laticrete" / "lat_price_list.xlsx")
+                    break
+                current = current.parent
+            else:
+                # Fallback to relative path
+                price_list_path = "resources/laticrete/lat_price_list.xlsx"
+        
         self.price_list_path = Path(price_list_path)
         self.price_data = None
         self.load_price_list()
