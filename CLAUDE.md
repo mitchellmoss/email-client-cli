@@ -115,6 +115,11 @@ email-client-cli/
 ├── .gitignore             # Git ignore patterns
 ├── CLAUDE.md              # This file
 ├── README.md              # User documentation
+├── start_all.sh           # Unix startup script (all services)
+├── start_all.py           # Cross-platform startup script
+├── start_all.bat          # Windows startup script
+├── stop_all.sh            # Unix stop script
+├── STARTUP_GUIDE.md       # Startup documentation
 ├── admin_panel/           # Web admin panel
 │   ├── backend/          # FastAPI backend
 │   │   ├── main.py      # API entry point
@@ -573,3 +578,51 @@ The admin panel integrates seamlessly with the existing CLI system:
 - Secure API endpoints
 - Session management
 - Audit logging for all actions
+
+## Startup Scripts
+
+### Overview
+The project includes cross-platform startup scripts that launch all components with a single command.
+
+### Scripts Provided
+1. **start_all.sh** (Mac/Linux)
+   - Bash script with colored output
+   - Automatic virtual environment setup
+   - Health checks for service readiness
+   - Combined log tailing
+
+2. **start_all.py** (Cross-platform)
+   - Python-based launcher
+   - Works on Windows, Mac, and Linux
+   - Process management and monitoring
+   - Graceful shutdown handling
+
+3. **start_all.bat** (Windows)
+   - Batch script for Windows
+   - Opens services in separate windows
+   - Automatic dependency installation
+
+4. **stop_all.sh** (Mac/Linux)
+   - Stops all running services
+   - Cleans up background processes
+
+### Features
+- Automatic virtual environment creation
+- Dependency installation (pip and npm)
+- Service health monitoring
+- Log file management
+- Graceful shutdown on Ctrl+C
+- Colored console output
+- Cross-platform compatibility
+
+### Usage
+```bash
+# Start all services
+./start_all.sh      # Mac/Linux
+python start_all.py # Any platform
+start_all.bat       # Windows
+
+# Stop all services
+./stop_all.sh       # Mac/Linux
+# or Ctrl+C in the startup terminal
+```

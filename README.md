@@ -12,9 +12,6 @@ Now includes a **Web Admin Panel** for easy monitoring and management!
 # Clone and setup
 git clone <repository-url>
 cd email-client-cli
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
 
 # Configure
 cp .env.example .env
@@ -23,9 +20,18 @@ cp .env.example .env
 # Test connections
 python src/test_connections.py
 
-# Run
-python main.py
+# Start everything with one command!
+./start_all.sh  # Mac/Linux
+# or
+python start_all.py  # Cross-platform
+# or
+start_all.bat  # Windows
 ```
+
+This will start:
+- ✅ Email processor (monitoring emails)
+- ✅ Admin backend API (http://localhost:8000)
+- ✅ Admin frontend UI (http://localhost:5173)
 
 ## Features
 
@@ -159,37 +165,51 @@ You should see:
 
 ## Usage
 
-### Option 1: Command Line Interface
+### Option 1: All-in-One Startup (Recommended)
 
-#### Run continuously (with scheduler):
+Start everything with a single command:
+
 ```bash
-python main.py
+# Mac/Linux
+./start_all.sh
+
+# Cross-platform (Windows/Mac/Linux)
+python start_all.py
+
+# Windows
+start_all.bat
 ```
 
-#### Run once (process current emails):
+This starts:
+- Email processor (background)
+- Admin backend API
+- Admin frontend UI
+
+To stop all services:
 ```bash
-python main.py --once
+./stop_all.sh  # Mac/Linux
+# or press Ctrl+C in the terminal
 ```
 
-### Option 2: Web Admin Panel (Recommended)
+### Option 2: Manual Startup
 
-#### Start the admin panel:
+#### Run email processor only:
 ```bash
-# Terminal 1 - Start backend
-cd admin_panel/backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-./run_dev.sh
-
-# Terminal 2 - Start frontend
-cd admin_panel/frontend
-npm install
-npm run dev
+python main.py        # Run continuously
+python main.py --once # Run once
 ```
 
-#### Access the admin panel:
-- Open http://localhost:5173
+#### Start admin panel separately:
+```bash
+# Backend
+cd admin_panel/backend && ./run_dev.sh
+
+# Frontend (new terminal)
+cd admin_panel/frontend && npm run dev
+```
+
+### Access the Admin Panel
+- URL: http://localhost:5173
 - Login: `admin@example.com` / `changeme`
 - Features:
   - Real-time system monitoring
