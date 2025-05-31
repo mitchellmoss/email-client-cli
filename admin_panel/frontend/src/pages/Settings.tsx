@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Loader2, Save, TestTube, Play, Square } from 'lucide-react';
@@ -44,36 +44,38 @@ export default function Settings() {
 
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ['emailConfig'],
-    queryFn: () => api.get('/email-config').then(res => res.data),
-    onSuccess: (data) => {
-      if (data) {
-        setEmailConfig({
-          imap: {
-            server: data.imap?.server || '',
-            port: data.imap?.port || 993,
-            email_address: data.imap?.email_address || '',
-            password: '',
-            has_password: data.imap?.has_password || false
-          },
-          smtp: {
-            server: data.smtp?.server || '',
-            port: data.smtp?.port || 587,
-            username: data.smtp?.username || '',
-            password: '',
-            has_password: data.smtp?.has_password || false
-          },
-          recipients: {
-            cs_email: data.recipients?.cs_email || '',
-            laticrete_cs_email: data.recipients?.laticrete_cs_email || ''
-          },
-          processing: {
-            check_interval_minutes: data.processing?.check_interval_minutes || 5,
-            log_level: data.processing?.log_level || 'INFO'
-          }
-        });
-      }
-    }
+    queryFn: () => api.get('/email-config').then(res => res.data)
   });
+
+  // Update emailConfig state when data is received
+  useEffect(() => {
+    if (config) {
+      setEmailConfig({
+        imap: {
+          server: config.imap?.server || '',
+          port: config.imap?.port || 993,
+          email_address: config.imap?.email_address || '',
+          password: '',
+          has_password: config.imap?.has_password || false
+        },
+        smtp: {
+          server: config.smtp?.server || '',
+          port: config.smtp?.port || 587,
+          username: config.smtp?.username || '',
+          password: '',
+          has_password: config.smtp?.has_password || false
+        },
+        recipients: {
+          cs_email: config.recipients?.cs_email || '',
+          laticrete_cs_email: config.recipients?.laticrete_cs_email || ''
+        },
+        processing: {
+          check_interval_minutes: config.processing?.check_interval_minutes || 5,
+          log_level: config.processing?.log_level || 'INFO'
+        }
+      });
+    }
+  }, [config]);
 
   const { data: systemStatus } = useQuery({
     queryKey: ['systemStatus'],

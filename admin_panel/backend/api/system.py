@@ -45,14 +45,20 @@ async def get_system_status(
     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
             cmdline = proc.info.get('cmdline', [])
-            if cmdline and 'main.py' in ' '.join(cmdline) and 'email-client-cli' in ' '.join(cmdline):
-                is_running = True
-                process_info = {
-                    "pid": proc.info['pid'],
-                    "cpu_percent": proc.cpu_percent(),
-                    "memory_mb": proc.memory_info().rss / 1024 / 1024
-                }
-                break
+            if cmdline and 'main.py' in ' '.join(cmdline):
+                # Check if process is running in our project directory
+                try:
+                    process = psutil.Process(proc.info['pid'])
+                    if 'email-client-cli' in process.cwd():
+                        is_running = True
+                        process_info = {
+                            "pid": proc.info['pid'],
+                            "cpu_percent": proc.cpu_percent(),
+                            "memory_mb": proc.memory_info().rss / 1024 / 1024
+                        }
+                        break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     
@@ -116,10 +122,16 @@ async def stop_system(
         for proc in psutil.process_iter(['pid', 'cmdline']):
             try:
                 cmdline = proc.info.get('cmdline', [])
-                if cmdline and 'main.py' in ' '.join(cmdline) and 'email-client-cli' in ' '.join(cmdline):
-                    proc.terminate()
-                    proc.wait(timeout=5)  # Wait up to 5 seconds
-                    return {"message": "System stopped successfully"}
+                if cmdline and 'main.py' in ' '.join(cmdline):
+                    # Check if process is running in our project directory
+                    try:
+                        process = psutil.Process(proc.info['pid'])
+                        if 'email-client-cli' in process.cwd():
+                            proc.terminate()
+                            proc.wait(timeout=5)  # Wait up to 5 seconds
+                            return {"message": "System stopped successfully"}
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
