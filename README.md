@@ -1,6 +1,10 @@
 # Email Client CLI - Tile Pro Depot Order Processor
 
-An intelligent email processing agent that monitors emails from Tile Pro Depot and automatically extracts and forwards TileWare product orders to customer service.
+An intelligent email processing agent that monitors emails from Tile Pro Depot and automatically:
+- Extracts and forwards TileWare product orders to customer service
+- Extracts Laticrete product orders, cross-references pricing, fills PDF order forms, and sends to Laticrete CS team
+
+Now includes a **Web Admin Panel** for easy monitoring and management!
 
 ## 🚀 Quick Start
 
@@ -25,13 +29,24 @@ python main.py
 
 ## Features
 
+### Core Email Processing
 - 🔍 **Automatic Email Monitoring**: Periodically checks for new emails from Tile Pro Depot
 - 🤖 **Intelligent Parsing**: Uses Claude AI to extract order details from complex HTML emails
-- 📦 **TileWare Product Detection**: Specifically identifies and processes orders containing TileWare products
-- 📧 **Automated Forwarding**: Sends formatted orders to customer service team
+- 📦 **Dual Product Support**: Processes both TileWare and Laticrete product orders
+- 📧 **Automated Forwarding**: Sends formatted orders to respective CS teams
+- 📄 **PDF Generation**: Automatically fills Laticrete PDF order forms
+- 💰 **Price Matching**: Cross-references Laticrete products with price list
 - 🔄 **Duplicate Prevention**: Tracks sent orders to prevent duplicate processing
 - 📊 **Comprehensive Logging**: Detailed logging for monitoring and troubleshooting
 - 🗄️ **Order History**: SQLite database for tracking all processed orders
+
+### Web Admin Panel (NEW!)
+- 🎯 **Real-Time Dashboard**: Monitor system status and order statistics
+- 📋 **Order Management**: View, search, and resend orders
+- 🔗 **Product Matching**: Map unmatched Laticrete products to SKUs
+- ⚙️ **System Control**: Start/stop processor, update configuration
+- 📊 **Analytics**: View order trends and processing metrics
+- 🔐 **Secure Access**: JWT authentication with admin protection
 
 ## Prerequisites
 
@@ -112,7 +127,8 @@ SMTP_USERNAME=your-email@gmail.com  # Same as EMAIL_ADDRESS
 SMTP_PASSWORD=xxxx xxxx xxxx xxxx   # Same as EMAIL_PASSWORD
 
 # Recipients
-CS_EMAIL=customerservice@company.com  # Where to send orders
+CS_EMAIL=customerservice@company.com  # Where to send TileWare orders
+LATICRETE_CS_EMAIL=laticrete-cs@company.com  # Where to send Laticrete orders
 
 # Processing Schedule
 CHECK_INTERVAL_MINUTES=5  # How often to check for new emails
@@ -143,15 +159,44 @@ You should see:
 
 ## Usage
 
-### Run continuously (with scheduler):
+### Option 1: Command Line Interface
+
+#### Run continuously (with scheduler):
 ```bash
 python main.py
 ```
 
-### Run once (process current emails):
+#### Run once (process current emails):
 ```bash
 python main.py --once
 ```
+
+### Option 2: Web Admin Panel (Recommended)
+
+#### Start the admin panel:
+```bash
+# Terminal 1 - Start backend
+cd admin_panel/backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+./run_dev.sh
+
+# Terminal 2 - Start frontend
+cd admin_panel/frontend
+npm install
+npm run dev
+```
+
+#### Access the admin panel:
+- Open http://localhost:5173
+- Login: `admin@example.com` / `changeme`
+- Features:
+  - Real-time system monitoring
+  - Order management and resending
+  - Product matching for Laticrete
+  - Email configuration
+  - Live logs
 
 ### Manage order tracking:
 ```bash
@@ -178,7 +223,7 @@ The system processes emails that match ALL these criteria:
 1. **From**: `noreply@tileprodepot.com`
 2. **Subject**: Contains "New customer order"
 3. **Body**: Contains "You've received the following order from"
-4. **Products**: At least one product with "TileWare" in the name
+4. **Products**: At least one product with "TileWare" or "Laticrete" in the name
 
 ### Example Email Format
 
@@ -200,22 +245,23 @@ TileWare Promessa™ Series Tee Hook (#T101-211-PC)    3     $130.20
 
 1. **Email Fetching**: Connects to your IMAP server and searches for emails from `noreply@tileprodepot.com`
 2. **Content Detection**: Checks if emails contain "New customer order" and "You've received the following order from"
-3. **TileWare Detection**: Parses HTML to find products containing "TileWare"
+3. **Product Detection**: Parses HTML to find products containing "TileWare" or "Laticrete"
 4. **Data Extraction**: Uses Claude AI to intelligently extract:
    - Order ID
-   - Customer name
-   - TileWare products (name, SKU, quantity)
+   - Customer name and phone
+   - Products (name, SKU, quantity, price)
    - Shipping address
    - Shipping method
-5. **Duplicate Check**: Verifies order hasn't been sent before using SQLite database
-6. **Formatting**: Converts extracted data to CS team format
-7. **Email Sending**: Sends formatted order to CS team with both plain text and HTML versions
+5. **Product Processing**:
+   - **TileWare**: Format and send text email to CS team
+   - **Laticrete**: Cross-reference price list, fill PDF form, send email with attachment
+6. **Duplicate Check**: Verifies order hasn't been sent before using SQLite database
+7. **Email Sending**: Sends formatted order to appropriate CS team
 8. **Order Tracking**: Records sent orders in database to prevent duplicate processing
 
 ## 📝 Output Format
 
-Processed orders are sent to CS in this format:
-
+### TileWare Orders (Text Email)
 ```
 Hi CS - Please place this order::::
 Hi CS, please place this order -
@@ -231,6 +277,14 @@ Antioch, IL 60002
 ::::
 ```
 
+### Laticrete Orders (PDF Attachment)
+- Email with order summary
+- Attached PDF order form with:
+  - Customer information
+  - Product details with matched SKUs
+  - Quantities and prices from price list
+  - Shipping information
+
 ## Project Structure
 
 ```
@@ -242,19 +296,34 @@ email-client-cli/
 ├── order_tracking.db      # SQLite database for order tracking
 ├── CLAUDE.md              # Detailed project documentation
 ├── README.md              # This file
+├── admin_panel/           # Web admin panel (NEW!)
+│   ├── backend/          # FastAPI backend
+│   │   ├── main.py      # API endpoints
+│   │   ├── auth.py      # JWT authentication
+│   │   └── api/         # API routes
+│   └── frontend/        # React frontend
+│       ├── src/         # React components
+│       └── package.json # Frontend dependencies
+├── resources/
+│   └── laticrete/
+│       ├── lat_blank_orderform.pdf  # PDF template
+│       └── lat_price_list.xlsx      # Price list
 └── src/
     ├── __init__.py
-    ├── email_fetcher.py   # IMAP email retrieval
-    ├── email_parser.py    # HTML parsing and TileWare detection
-    ├── claude_processor.py # Claude AI integration
-    ├── order_formatter.py # Order formatting logic
-    ├── email_sender.py    # SMTP email sending
-    ├── order_tracker.py   # Order tracking and duplicate prevention
-    ├── manage_orders.py   # Order management utility
-    ├── test_connections.py # Connection testing utility
+    ├── email_fetcher.py     # IMAP email retrieval
+    ├── email_parser.py      # HTML parsing and product detection
+    ├── claude_processor.py  # Claude AI integration
+    ├── order_formatter.py   # Order formatting logic
+    ├── email_sender.py      # SMTP email sending
+    ├── order_tracker.py     # Order tracking and duplicate prevention
+    ├── laticrete_processor.py # Laticrete order handling
+    ├── price_list_reader.py   # Excel price list parser
+    ├── pdf_filler.py         # PDF form filler
+    ├── manage_orders.py     # Order management utility
+    ├── test_connections.py  # Connection testing utility
     └── utils/
         ├── __init__.py
-        └── logger.py      # Logging configuration
+        └── logger.py        # Logging configuration
 ```
 
 ## 🔧 Troubleshooting
@@ -282,7 +351,7 @@ email-client-cli/
 1. **Check Email Criteria**
    - Sender must be exactly `noreply@tileprodepot.com`
    - Subject must contain "New customer order"
-   - Email must have "TileWare" products
+   - Email must have "TileWare" or "Laticrete" products
 
 2. **Check Email Location**
    - Emails must be in INBOX (not in folders)

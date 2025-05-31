@@ -14,6 +14,7 @@ An intelligent email processing agent that monitors emails from Tile Pro Depot a
 - PDF order form generation for Laticrete orders
 - Email forwarding with formatted order details or PDF attachments
 - Comprehensive error handling and retry logic
+- **NEW: Web Admin Panel for monitoring and management**
 
 ## Architecture
 
@@ -81,9 +82,26 @@ An intelligent email processing agent that monitors emails from Tile Pro Depot a
 - **Purpose**: Fill Laticrete PDF order forms
 - **Features**:
   - AcroForm field detection and filling
-  - Fallback text overlay for non-form PDFs
+  - Multiple PDF library support (PyMuPDF, pdfrw, pypdf)
+  - Automatic method selection with fallback
   - Order data to PDF mapping
   - Temporary file management
+
+### 9. Web Admin Panel (`admin_panel/`)
+- **Purpose**: Web-based monitoring and management interface
+- **Backend** (`admin_panel/backend/`):
+  - FastAPI with Python
+  - JWT authentication
+  - RESTful API endpoints
+  - Integration with existing Python modules
+  - Real-time system status
+- **Frontend** (`admin_panel/frontend/`):
+  - React with TypeScript
+  - Tailwind CSS for styling
+  - Real-time dashboard
+  - Order management interface
+  - Product matching for Laticrete
+  - System configuration
 
 ## Implementation Details
 
@@ -97,6 +115,19 @@ email-client-cli/
 ├── .gitignore             # Git ignore patterns
 ├── CLAUDE.md              # This file
 ├── README.md              # User documentation
+├── admin_panel/           # Web admin panel
+│   ├── backend/          # FastAPI backend
+│   │   ├── main.py      # API entry point
+│   │   ├── auth.py      # JWT authentication
+│   │   ├── database.py  # Database models
+│   │   ├── api/         # API routes
+│   │   └── services/    # Business logic
+│   └── frontend/        # React frontend
+│       ├── src/         # React components
+│       │   ├── pages/   # Page components
+│       │   ├── components/ # UI components
+│       │   └── api/     # API client
+│       └── package.json # Frontend dependencies
 ├── resources/
 │   └── laticrete/
 │       ├── lat_blank_orderform.pdf  # Laticrete order form template
@@ -470,3 +501,75 @@ python src/pdf_filler.py           # Test PDF generation
 - **PDF not filling**: Verify PDF form fields or use text overlay mode
 - **Email not sending**: Ensure LATICRETE_CS_EMAIL is set in .env
 - **Mixed orders**: System processes TileWare and Laticrete separately
+
+## Web Admin Panel
+
+### Overview
+The admin panel provides a modern web interface for monitoring and managing the email processing system without interrupting the CLI operation.
+
+### Features
+1. **Dashboard**: Real-time system monitoring
+   - System status (running/stopped)
+   - Order statistics and trends
+   - Recent activity logs
+   - Processing metrics
+
+2. **Order Management**:
+   - View all processed orders
+   - Search and filter capabilities
+   - Resend orders to CS teams
+   - Export order data
+
+3. **Product Matching**:
+   - Map unmatched Laticrete products
+   - Manage SKU mappings
+   - Update pricing information
+   - Bulk import/export
+
+4. **System Configuration**:
+   - Email server settings (IMAP/SMTP)
+   - Connection testing
+   - Email templates
+   - System control (start/stop)
+
+### Technical Stack
+- **Backend**: FastAPI (Python) with JWT authentication
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **Database**: Same SQLite database as CLI
+- **API**: RESTful with OpenAPI documentation
+
+### Quick Start
+```bash
+# Backend (Terminal 1)
+cd admin_panel/backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+./run_dev.sh
+
+# Frontend (Terminal 2)
+cd admin_panel/frontend
+npm install
+npm run dev
+
+# Access at http://localhost:5173
+# Login: admin@example.com / changeme
+```
+
+### API Documentation
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+### Integration
+The admin panel integrates seamlessly with the existing CLI system:
+- Uses the same database (`order_tracking.db`)
+- Imports existing Python modules
+- Reads the same `.env` configuration
+- Can control the email processor remotely
+
+### Security
+- JWT-based authentication
+- Admin role protection
+- Secure API endpoints
+- Session management
+- Audit logging for all actions

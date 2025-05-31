@@ -56,3 +56,13 @@ htmlcov/
 # Project specific
 # Note: order_tracking.db is intentionally NOT ignored - it should be committed
 email_cache/
+
+# Admin Panel
+admin_panel/backend/venv/
+admin_panel/backend/__pycache__/
+admin_panel/backend/*.pyc
+admin_panel/backend/.pytest_cache/
+admin_panel/backend/test.db
+admin_panel/frontend/node_modules/
+admin_panel/frontend/dist/
+admin_panel/frontend/.vite/
