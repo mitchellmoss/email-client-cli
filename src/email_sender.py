@@ -4,10 +4,15 @@ import smtplib
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime
 from typing import Optional, List, Dict
 import time
 import logging
+import os
+import imaplib
+from email import message_from_string
 
 from src.utils.logger import setup_logger
 
@@ -191,6 +196,10 @@ class EmailSender:
                         server.send_message(message)
                         
                         logger.info(f"Successfully sent order email to {recipient}")
+                        
+                        # Save to sent folder if configured
+                        self._save_to_sent_folder(message)
+                        
                         return True
                 else:
                     # Use STARTTLS for other ports (587, 25)
@@ -202,6 +211,10 @@ class EmailSender:
                         server.send_message(message)
                         
                         logger.info(f"Successfully sent order email to {recipient}")
+                        
+                        # Save to sent folder if configured
+                        self._save_to_sent_folder(message)
+                        
                         return True
                     
             except smtplib.SMTPAuthenticationError as e:
@@ -271,3 +284,113 @@ class EmailSender:
                 
         logger.info(f"Sent {sent_count} out of {len(orders)} orders")
         return sent_count
+    
+    def send_email_with_attachment(self, to_email: str, subject: str, 
+                                  html_content: str, text_content: str,
+                                  attachment_path: str, attachment_name: str) -> bool:
+        """
+        Send email with a PDF attachment.
+        
+        Args:
+            to_email: Recipient email address
+            subject: Email subject
+            html_content: HTML version of email body
+            text_content: Plain text version of email body
+            attachment_path: Path to PDF file to attach
+            attachment_name: Name for the attachment
+            
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        # Create message
+        message = MIMEMultipart('mixed')
+        message['Subject'] = subject
+        message['From'] = self.from_address
+        message['To'] = to_email
+        message['Date'] = datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')
+        
+        # Create the alternative part
+        alternative = MIMEMultipart('alternative')
+        message.attach(alternative)
+        
+        # Add text and HTML parts
+        text_part = MIMEText(text_content, 'plain')
+        html_part = MIMEText(html_content, 'html')
+        alternative.attach(text_part)
+        alternative.attach(html_part)
+        
+        # Add PDF attachment
+        try:
+            with open(attachment_path, 'rb') as attachment:
+                # Create MIMEBase instance
+                pdf_part = MIMEBase('application', 'pdf')
+                pdf_part.set_payload(attachment.read())
+                
+            # Encode file
+            encoders.encode_base64(pdf_part)
+            
+            # Add header
+            pdf_part.add_header(
+                'Content-Disposition',
+                f'attachment; filename= {attachment_name}'
+            )
+            
+            # Attach to message
+            message.attach(pdf_part)
+            
+        except Exception as e:
+            logger.error(f"Error attaching PDF: {e}")
+            return False
+        
+        # Send with retry logic
+        return self._send_with_retry(to_email, message)
+    
+    def _save_to_sent_folder(self, message: MIMEMultipart) -> None:
+        """
+        Save sent email to IMAP Sent folder.
+        Note: This requires IMAP credentials and may not work with all providers.
+        """
+        try:
+            # Check if we have IMAP credentials
+            imap_server = os.getenv('IMAP_SERVER')
+            imap_port = os.getenv('IMAP_PORT', '993')
+            email_address = os.getenv('EMAIL_ADDRESS')
+            email_password = os.getenv('EMAIL_PASSWORD')
+            
+            if not all([imap_server, email_address, email_password]):
+                logger.debug("IMAP credentials not configured, skipping sent folder save")
+                return
+            
+            # Connect to IMAP server
+            imap = imaplib.IMAP4_SSL(imap_server, int(imap_port))
+            imap.login(email_address, email_password)
+            
+            # Find sent folder name (varies by provider)
+            sent_folder = None
+            for folder_name in ['Sent', '[Gmail]/Sent Mail', 'Sent Items', 'INBOX.Sent']:
+                try:
+                    status, _ = imap.select(folder_name)
+                    if status == 'OK':
+                        sent_folder = folder_name
+                        break
+                except:
+                    continue
+            
+            if not sent_folder:
+                logger.warning("Could not find sent folder in IMAP")
+                imap.logout()
+                return
+            
+            # Convert message to string
+            message_str = message.as_string()
+            
+            # Append to sent folder
+            imap.append(sent_folder, '\\Seen', imaplib.Time2Internaldate(time.time()), 
+                       message_str.encode('utf-8'))
+            
+            logger.info(f"Email saved to {sent_folder} folder")
+            imap.logout()
+            
+        except Exception as e:
+            logger.debug(f"Could not save to sent folder: {e}")
+            # This is non-critical, so we don't raise the exception

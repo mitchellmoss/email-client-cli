@@ -22,6 +22,13 @@ class TileProDepotParser:
             r'TILEWARE'
         ]
         
+        self.laticrete_patterns = [
+            r'laticrete',
+            r'LATICRETE',
+            r'Laticrete',
+            r'LATI\s*CRETE'
+        ]
+        
     def contains_tileware_product(self, html_content: str) -> bool:
         """
         Check if the email contains TileWare products.
@@ -76,6 +83,83 @@ class TileProDepotParser:
             logger.error(f"Error parsing HTML content: {e}")
             
         return False
+    
+    def contains_laticrete_product(self, html_content: str) -> bool:
+        """
+        Check if the email contains Laticrete products.
+        
+        Args:
+            html_content: HTML content of the email
+            
+        Returns:
+            True if Laticrete products are found, False otherwise
+        """
+        if not html_content:
+            return False
+            
+        # Convert to lowercase for case-insensitive search
+        content_lower = html_content.lower()
+        
+        # Quick check for Laticrete mention
+        if 'laticrete' not in content_lower:
+            return False
+            
+        # Parse HTML to look for Laticrete in product tables
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Look for tables that might contain product information
+            tables = soup.find_all('table')
+            
+            for table in tables:
+                table_text = table.get_text()
+                for pattern in self.laticrete_patterns:
+                    if re.search(pattern, table_text, re.IGNORECASE):
+                        logger.info("Found Laticrete product in order")
+                        return True
+                        
+            # Also check in general content if not in tables
+            body_text = soup.get_text()
+            for pattern in self.laticrete_patterns:
+                if re.search(pattern, body_text, re.IGNORECASE):
+                    # Make sure it's in a product context
+                    lines = body_text.split('\n')
+                    for i, line in enumerate(lines):
+                        if re.search(pattern, line, re.IGNORECASE):
+                            # Check surrounding lines for product indicators
+                            context_lines = lines[max(0, i-2):min(len(lines), i+3)]
+                            context = ' '.join(context_lines)
+                            if any(indicator in context.lower() for indicator in 
+                                   ['product', 'item', 'quantity', 'price', '$']):
+                                logger.info("Found Laticrete product in email content")
+                                return True
+                                
+        except Exception as e:
+            logger.error(f"Error parsing HTML content: {e}")
+            
+        return False
+    
+    def get_product_type(self, html_content: str) -> str:
+        """
+        Determine the type of products in the order.
+        
+        Args:
+            html_content: HTML content of the email
+            
+        Returns:
+            'tileware', 'laticrete', 'both', or 'none'
+        """
+        has_tileware = self.contains_tileware_product(html_content)
+        has_laticrete = self.contains_laticrete_product(html_content)
+        
+        if has_tileware and has_laticrete:
+            return 'both'
+        elif has_tileware:
+            return 'tileware'
+        elif has_laticrete:
+            return 'laticrete'
+        else:
+            return 'none'
     
     def extract_basic_order_info(self, html_content: str) -> Dict[str, Any]:
         """
@@ -178,13 +262,18 @@ class TileProDepotParser:
                     if len(cells) >= 2:  # At least product and quantity
                         product_text = cells[0].get_text().strip()
                         
-                        # Check if this is a TileWare product
-                        if any(re.search(pattern, product_text, re.IGNORECASE) 
-                               for pattern in self.tileware_patterns):
+                        # Check if this is a TileWare or Laticrete product
+                        is_tileware = any(re.search(pattern, product_text, re.IGNORECASE) 
+                                        for pattern in self.tileware_patterns)
+                        is_laticrete = any(re.search(pattern, product_text, re.IGNORECASE) 
+                                         for pattern in self.laticrete_patterns)
+                        
+                        if is_tileware or is_laticrete:
                             product = {
                                 'name': product_text,
                                 'quantity': cells[1].get_text().strip() if len(cells) > 1 else '1',
-                                'price': cells[2].get_text().strip() if len(cells) > 2 else ''
+                                'price': cells[2].get_text().strip() if len(cells) > 2 else '',
+                                'type': 'tileware' if is_tileware else 'laticrete'
                             }
                             products.append(product)
                             

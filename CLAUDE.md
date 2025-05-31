@@ -1,13 +1,18 @@
 # Email Client CLI - Tile Pro Depot Order Processor
 
 ## Project Overview
-An intelligent email processing agent that monitors emails from Tile Pro Depot and automatically extracts and forwards TileWare product orders to customer service.
+An intelligent email processing agent that monitors emails from Tile Pro Depot and automatically:
+- Extracts and forwards TileWare product orders to customer service
+- Extracts Laticrete product orders, cross-references pricing, fills PDF order forms, and sends to Laticrete CS team
 
 ## Key Features
 - Periodic IMAP email fetching (not SMTP - SMTP is for sending only)
 - Intelligent email parsing using Claude API
 - Automatic order extraction and formatting
-- Email forwarding with formatted order details
+- Dual product support: TileWare and Laticrete
+- Laticrete price list cross-referencing
+- PDF order form generation for Laticrete orders
+- Email forwarding with formatted order details or PDF attachments
 - Comprehensive error handling and retry logic
 
 ## Architecture
@@ -22,10 +27,11 @@ An intelligent email processing agent that monitors emails from Tile Pro Depot a
   - Implements connection pooling for efficiency
 
 ### 2. Email Parser Module (`src/email_parser.py`)
-- **Purpose**: Extract TileWare products from HTML emails
+- **Purpose**: Extract TileWare and Laticrete products from HTML emails
 - **Features**:
   - BeautifulSoup4 for HTML parsing
-  - Pattern matching for TileWare products
+  - Pattern matching for TileWare and Laticrete products
+  - Product type detection (tileware, laticrete, both, none)
   - Extracts basic order information
   - Validates order data structure
 
@@ -33,6 +39,7 @@ An intelligent email processing agent that monitors emails from Tile Pro Depot a
 - **Model**: Claude 3 Haiku (cost-effective)
 - **Features**:
   - Intelligent extraction of complex order data
+  - Separate prompts for TileWare and Laticrete products
   - Handles varied email formats
   - JSON response for structured data
   - Low temperature (0.1) for consistent parsing
@@ -49,9 +56,34 @@ An intelligent email processing agent that monitors emails from Tile Pro Depot a
 - **Protocol**: SMTP for sending emails
 - **Features**:
   - HTML and plain text versions
+  - PDF attachment support
   - Retry logic with exponential backoff
   - Connection testing
   - Batch sending support
+
+### 6. Laticrete Processor (`src/laticrete_processor.py`)
+- **Purpose**: Handle Laticrete-specific order processing
+- **Features**:
+  - Price list enrichment from Excel file
+  - PDF order form generation
+  - Automated email with PDF attachment
+  - End-to-end Laticrete order handling
+
+### 7. Price List Reader (`src/price_list_reader.py`)
+- **Purpose**: Parse and search Laticrete price list
+- **Features**:
+  - Excel file parsing with pandas
+  - Product search by name or SKU
+  - Flexible column mapping
+  - Price and product info extraction
+
+### 8. PDF Filler (`src/pdf_filler.py`)
+- **Purpose**: Fill Laticrete PDF order forms
+- **Features**:
+  - AcroForm field detection and filling
+  - Fallback text overlay for non-form PDFs
+  - Order data to PDF mapping
+  - Temporary file management
 
 ## Implementation Details
 
@@ -65,6 +97,10 @@ email-client-cli/
 ├── .gitignore             # Git ignore patterns
 ├── CLAUDE.md              # This file
 ├── README.md              # User documentation
+├── resources/
+│   └── laticrete/
+│       ├── lat_blank_orderform.pdf  # Laticrete order form template
+│       └── lat_price_list.xlsx      # Laticrete product price list
 └── src/
     ├── __init__.py
     ├── email_fetcher.py   # IMAP implementation
@@ -72,7 +108,12 @@ email-client-cli/
     ├── claude_processor.py # AI integration
     ├── order_formatter.py # Output formatting
     ├── email_sender.py    # SMTP implementation
-    ├── test_connections.py # Testing utility
+    ├── laticrete_processor.py # Laticrete order handling
+    ├── price_list_reader.py   # Excel price list parser
+    ├── pdf_filler.py         # PDF form filler
+    ├── order_tracker.py      # Order deduplication
+    ├── test_connections.py   # Testing utility
+    ├── test_laticrete.py    # Laticrete testing
     └── utils/
         ├── __init__.py
         └── logger.py      # Logging setup
@@ -87,6 +128,13 @@ python-dotenv>=1.0.0    # Environment variables
 APScheduler>=3.10.0     # Task scheduling
 colorlog>=6.8.0         # Colored logging
 retry>=0.9.2            # Retry decorator
+
+# PDF and Excel processing
+pypdf>=3.17.0           # PDF manipulation
+PyPDF2>=3.0.0          # PDF form handling
+reportlab>=4.0.0       # PDF generation
+openpyxl>=3.1.0        # Excel file reading
+pandas>=2.0.0          # Data processing
 ```
 
 ## Email Processing Flow
@@ -99,14 +147,22 @@ retry>=0.9.2            # Retry decorator
 - Body contains: "You've received the following order from"
 ```
 
-### 2. TileWare Detection
+### 2. Product Detection
 ```python
-# Patterns in email_parser.py
+# TileWare patterns in email_parser.py
 tileware_patterns = [
     r'tileware',
     r'TileWare',
     r'Tile\s*Ware',
     r'TILEWARE'
+]
+
+# Laticrete patterns in email_parser.py
+laticrete_patterns = [
+    r'laticrete',
+    r'LATICRETE',
+    r'Laticrete',
+    r'LATI\s*CRETE'
 ]
 ```
 
@@ -135,6 +191,8 @@ tileware_patterns = [
 ```
 
 ### 4. Output Format
+
+#### TileWare Orders (Text Email)
 ```
 Hi CS - Please place this order::::
 Hi CS, please place this order -
@@ -149,6 +207,16 @@ Antioch, IL 60002
 
 ::::
 ```
+
+#### Laticrete Orders (PDF Attachment)
+- Email sent to LATICRETE_CS_EMAIL with:
+  - HTML/Text email body with order summary
+  - Attached PDF order form filled with:
+    - Customer information
+    - Product details with SKUs
+    - Quantities and prices from price list
+    - Shipping address
+    - Order date and number
 
 ## Configuration Guide
 
@@ -170,7 +238,8 @@ SMTP_USERNAME=sender@gmail.com  # Sender email
 SMTP_PASSWORD=xxxx xxxx xxxx    # App password
 
 # Processing
-CS_EMAIL=cs@company.com         # Where to send orders
+CS_EMAIL=cs@company.com         # Where to send TileWare orders
+LATICRETE_CS_EMAIL=lat-cs@company.com  # Where to send Laticrete orders
 CHECK_INTERVAL_MINUTES=5        # Check frequency
 LOG_LEVEL=INFO                  # Logging verbosity
 LOG_FILE=email_processor.log    # Log file path
@@ -356,3 +425,48 @@ WantedBy=multi-user.target
 - Update dependencies
 - Rotate API keys
 - Performance review
+- Update Laticrete price list if needed
+
+## Laticrete Processing Details
+
+### Overview
+The system automatically detects and processes Laticrete product orders differently from TileWare orders:
+1. Detects Laticrete products in order emails
+2. Extracts order information using Claude
+3. Cross-references products with Excel price list
+4. Fills out PDF order form
+5. Sends email with PDF attachment to Laticrete CS team
+
+### Laticrete-Specific Files
+- **Price List**: `resources/laticrete/lat_price_list.xlsx`
+  - Excel file with product names, SKUs, and prices
+  - Automatically parsed to match order products
+  - Supports flexible column naming
+  
+- **Order Form**: `resources/laticrete/lat_blank_orderform.pdf`
+  - Blank PDF template for orders
+  - Filled programmatically with order data
+  - Supports both form fields and text overlay
+
+### Processing Flow
+1. **Detection**: Email parser identifies Laticrete products
+2. **Extraction**: Claude extracts order details with Laticrete-specific prompt
+3. **Enrichment**: Price list reader matches products and adds pricing
+4. **PDF Generation**: PDF filler creates completed order form
+5. **Email Delivery**: Sends to LATICRETE_CS_EMAIL with PDF attachment
+
+### Testing Laticrete Features
+```bash
+# Run Laticrete test suite
+python src/test_laticrete.py
+
+# Test individual components
+python src/price_list_reader.py    # Test price list parsing
+python src/pdf_filler.py           # Test PDF generation
+```
+
+### Troubleshooting Laticrete Processing
+- **Products not found**: Check price list Excel file has correct columns
+- **PDF not filling**: Verify PDF form fields or use text overlay mode
+- **Email not sending**: Ensure LATICRETE_CS_EMAIL is set in .env
+- **Mixed orders**: System processes TileWare and Laticrete separately

@@ -17,6 +17,7 @@ from src.order_formatter import OrderFormatter
 from src.email_sender import EmailSender
 from src.claude_processor import ClaudeProcessor
 from src.order_tracker import OrderTracker
+from src.laticrete_processor import LatricreteProcessor
 from src.utils.logger import setup_logger
 
 # Load environment variables
@@ -49,11 +50,15 @@ class EmailProcessor:
         )
         
         self.cs_email = os.getenv('CS_EMAIL')
+        self.laticrete_cs_email = os.getenv('LATICRETE_CS_EMAIL')
         
         # Initialize order tracker
         self.order_tracker = OrderTracker(
             db_path=os.getenv('ORDER_TRACKING_DB', 'order_tracking.db')
         )
+        
+        # Initialize Laticrete processor
+        self.laticrete_processor = LatricreteProcessor()
         
     def process_emails(self):
         """Main processing function to check and process new emails."""
@@ -66,52 +71,26 @@ class EmailProcessor:
             
             for email_data in new_emails:
                 try:
-                    # Parse email to check if it contains TileWare products
-                    if self.parser.contains_tileware_product(email_data['html']):
-                        logger.info(f"Processing order email: {email_data['subject']}")
-                        
-                        # Use Claude to extract order details
-                        order_details = self.claude_processor.extract_order_details(
-                            email_data['html']
-                        )
-                        
-                        if order_details:
-                            order_id = order_details.get('order_id', 'Unknown')
-                            
-                            # Check if order has already been sent
-                            is_sent, existing_order = self.order_tracker.has_order_been_sent(order_id)
-                            if is_sent:
-                                logger.info(f"Order {order_id} has already been sent on {existing_order.get('created_at')}, skipping...")
-                                continue
-                            
-                            # Format the order for CS team
-                            formatted_order = self.formatter.format_order(order_details)
-                            
-                            # Send to CS team
-                            success = self.email_sender.send_order_to_cs(
-                                recipient=self.cs_email,
-                                order_text=formatted_order,
-                                original_order_id=order_id
-                            )
-                            
-                            if success:
-                                # Track the sent order
-                                if self.order_tracker.mark_order_as_sent(
-                                    order_id=order_id,
-                                    email_data=email_data,
-                                    order_details=order_details,
-                                    formatted_content=formatted_order,
-                                    recipient=self.cs_email
-                                ):
-                                    logger.info(f"Successfully processed and sent order {order_id}")
-                                else:
-                                    logger.warning(f"Order {order_id} sent but failed to track in database")
-                            else:
-                                logger.error(f"Failed to send order {order_id} to CS")
-                        else:
-                            logger.warning(f"Failed to extract order details from email: {email_data['subject']}")
-                    else:
-                        logger.debug(f"Email does not contain TileWare products: {email_data['subject']}")
+                    # Check what type of products this email contains
+                    product_type = self.parser.get_product_type(email_data['html'])
+                    
+                    if product_type == 'none':
+                        logger.debug(f"Email does not contain TileWare or Laticrete products: {email_data['subject']}")
+                        continue
+                    
+                    logger.info(f"Processing order email ({product_type} products): {email_data['subject']}")
+                    
+                    # Handle mixed product types
+                    if product_type == 'both':
+                        logger.info("Order contains both TileWare and Laticrete products, processing separately")
+                        # Process TileWare products
+                        self._process_tileware_order(email_data)
+                        # Process Laticrete products  
+                        self._process_laticrete_order(email_data)
+                    elif product_type == 'tileware':
+                        self._process_tileware_order(email_data)
+                    elif product_type == 'laticrete':
+                        self._process_laticrete_order(email_data)
                         
                 except Exception as e:
                     logger.error(f"Error processing email {email_data.get('subject', 'Unknown')}: {str(e)}")
@@ -121,6 +100,97 @@ class EmailProcessor:
             logger.error(f"Error in email processing cycle: {str(e)}")
             
         logger.info("Email processing cycle completed")
+    
+    def _process_tileware_order(self, email_data):
+        """Process TileWare products from the email."""
+        try:
+            # Use Claude to extract TileWare order details
+            order_details = self.claude_processor.extract_order_details(
+                email_data['html'], product_type="tileware"
+            )
+            
+            if order_details and self.claude_processor.validate_extraction(order_details, "tileware"):
+                order_id = order_details.get('order_id', 'Unknown')
+                
+                # Check if order has already been sent
+                is_sent, existing_order = self.order_tracker.has_order_been_sent(f"TW-{order_id}")
+                if is_sent:
+                    logger.info(f"TileWare order {order_id} has already been sent on {existing_order.get('created_at')}, skipping...")
+                    return
+                
+                # Format the order for CS team
+                formatted_order = self.formatter.format_order(order_details)
+                
+                # Send to CS team
+                success = self.email_sender.send_order_to_cs(
+                    recipient=self.cs_email,
+                    order_text=formatted_order,
+                    original_order_id=order_id
+                )
+                
+                if success:
+                    # Track the sent order
+                    if self.order_tracker.mark_order_as_sent(
+                        order_id=f"TW-{order_id}",
+                        email_data=email_data,
+                        order_details=order_details,
+                        formatted_content=formatted_order,
+                        recipient=self.cs_email
+                    ):
+                        logger.info(f"Successfully processed and sent TileWare order {order_id}")
+                    else:
+                        logger.warning(f"TileWare order {order_id} sent but failed to track in database")
+                else:
+                    logger.error(f"Failed to send TileWare order {order_id} to CS")
+            else:
+                logger.warning(f"Failed to extract TileWare order details from email: {email_data['subject']}")
+                
+        except Exception as e:
+            logger.error(f"Error processing TileWare order: {str(e)}")
+    
+    def _process_laticrete_order(self, email_data):
+        """Process Laticrete products from the email."""
+        try:
+            if not self.laticrete_cs_email:
+                logger.warning("LATICRETE_CS_EMAIL not configured, skipping Laticrete order processing")
+                return
+                
+            # Use Claude to extract Laticrete order details
+            order_details = self.claude_processor.extract_order_details(
+                email_data['html'], product_type="laticrete"
+            )
+            
+            if order_details and self.claude_processor.validate_extraction(order_details, "laticrete"):
+                order_id = order_details.get('order_id', 'Unknown')
+                
+                # Check if order has already been sent
+                is_sent, existing_order = self.order_tracker.has_order_been_sent(f"LAT-{order_id}")
+                if is_sent:
+                    logger.info(f"Laticrete order {order_id} has already been sent on {existing_order.get('created_at')}, skipping...")
+                    return
+                
+                # Process with Laticrete processor (enriches prices, fills PDF, sends email)
+                success = self.laticrete_processor.process_order(order_details)
+                
+                if success:
+                    # Track the sent order
+                    if self.order_tracker.mark_order_as_sent(
+                        order_id=f"LAT-{order_id}",
+                        email_data=email_data,
+                        order_details=order_details,
+                        formatted_content="Laticrete order with PDF attachment",
+                        recipient=self.laticrete_cs_email
+                    ):
+                        logger.info(f"Successfully processed and sent Laticrete order {order_id}")
+                    else:
+                        logger.warning(f"Laticrete order {order_id} sent but failed to track in database")
+                else:
+                    logger.error(f"Failed to process Laticrete order {order_id}")
+            else:
+                logger.warning(f"Failed to extract Laticrete order details from email: {email_data['subject']}")
+                
+        except Exception as e:
+            logger.error(f"Error processing Laticrete order: {str(e)}")
 
 
 def main():
@@ -142,6 +212,10 @@ def main():
         'ANTHROPIC_API_KEY', 'SMTP_SERVER', 'SMTP_USERNAME',
         'SMTP_PASSWORD', 'CS_EMAIL'
     ]
+    
+    # Optional but recommended for Laticrete processing
+    if not os.getenv('LATICRETE_CS_EMAIL'):
+        logger.warning("LATICRETE_CS_EMAIL not set - Laticrete orders will not be processed")
     
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:

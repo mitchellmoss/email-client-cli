@@ -9,6 +9,13 @@ APScheduler>=3.10.0
 lxml>=5.0.0
 html5lib>=1.1
 
+# PDF and Excel processing
+pypdf>=3.17.0
+PyPDF2>=3.0.0
+reportlab>=4.0.0
+openpyxl>=3.1.0
+pandas>=2.0.0
+
 # Logging and utilities
 colorlog>=6.8.0
 retry>=0.9.2

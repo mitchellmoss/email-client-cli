@@ -24,17 +24,18 @@ class ClaudeProcessor:
         self.client = Anthropic(api_key=api_key)
         self.model = "claude-3-haiku-20240307"  # Cost-effective for parsing
         
-    def extract_order_details(self, html_content: str) -> Optional[Dict[str, Any]]:
+    def extract_order_details(self, html_content: str, product_type: str = "tileware") -> Optional[Dict[str, Any]]:
         """
         Extract detailed order information using Claude.
         
         Args:
             html_content: HTML content of the email
+            product_type: Type of products to extract ("tileware" or "laticrete")
             
         Returns:
             Dictionary with extracted order details or None if extraction fails
         """
-        prompt = self._create_extraction_prompt(html_content)
+        prompt = self._create_extraction_prompt(html_content, product_type)
         
         try:
             start_time = time.time()
@@ -73,8 +74,15 @@ class ClaudeProcessor:
             logger.error(f"Error calling Claude API: {e}")
             return None
     
-    def _create_extraction_prompt(self, html_content: str) -> str:
+    def _create_extraction_prompt(self, html_content: str, product_type: str = "tileware") -> str:
         """Create a structured prompt for Claude to extract order details."""
+        if product_type == "laticrete":
+            return self._create_laticrete_prompt(html_content)
+        else:
+            return self._create_tileware_prompt(html_content)
+    
+    def _create_tileware_prompt(self, html_content: str) -> str:
+        """Create prompt for TileWare product extraction."""
         return f"""Extract order details from this Tile Pro Depot email. Focus on TileWare products only.
 
 <email_content>
@@ -102,6 +110,62 @@ Return the data in this exact JSON format:
     "order_id": "order number",
     "customer_name": "full name",
     "tileware_products": [
+        {{
+            "name": "product full name",
+            "sku": "product code",
+            "quantity": number,
+            "price": "price as string"
+        }}
+    ],
+    "billing_address": {{
+        "name": "recipient name",
+        "street": "street address",
+        "city": "city",
+        "state": "state",
+        "zip": "zip code"
+    }},
+    "shipping_address": {{
+        "name": "recipient name",
+        "street": "street address",
+        "city": "city",
+        "state": "state",
+        "zip": "zip code"
+    }},
+    "shipping_method": "shipping method",
+    "total": "total amount"
+}}
+
+If any field is not found, use null for that field. If shipping address is not found but billing address is available, use null for shipping_address."""
+    
+    def _create_laticrete_prompt(self, html_content: str) -> str:
+        """Create prompt for Laticrete product extraction."""
+        return f"""Extract order details from this Tile Pro Depot email. Focus on LATICRETE products only.
+
+<email_content>
+{html_content}
+</email_content>
+
+Extract the following information and return as JSON:
+
+1. Order ID (from subject or content)
+2. Customer name
+3. All LATICRETE products with:
+   - Product name (full description)
+   - Product code/SKU (if available)
+   - Quantity
+   - Price (if available)
+4. Billing address (full address) - if available
+5. Shipping address (full address) - if not found, will use billing address
+6. Shipping method (e.g., UPS Ground, FedEx, etc.)
+7. Order total (if available)
+
+IMPORTANT: Only include products that contain "LATICRETE" or "Laticrete" in the name.
+
+Return the data in this exact JSON format:
+{{
+    "order_id": "order number",
+    "customer_name": "full name",
+    "laticrete_products": [
         {{
             "name": "product full name",
             "sku": "product code",
@@ -190,12 +254,13 @@ Return only the formatted text, nothing else."""
             logger.error(f"Error formatting order with Claude: {e}")
             return None
     
-    def validate_extraction(self, order_details: Dict[str, Any]) -> bool:
+    def validate_extraction(self, order_details: Dict[str, Any], product_type: str = "tileware") -> bool:
         """
         Validate that extracted order details contain required information.
         
         Args:
             order_details: Extracted order details
+            product_type: Type of products ("tileware" or "laticrete")
             
         Returns:
             True if valid, False otherwise
@@ -204,17 +269,18 @@ Return only the formatted text, nothing else."""
             return False
             
         # Check for required fields
-        required_fields = ['customer_name', 'tileware_products', 'shipping_address']
+        product_field = f"{product_type}_products"
+        required_fields = ['customer_name', product_field, 'shipping_address']
         
         for field in required_fields:
             if field not in order_details or not order_details[field]:
                 logger.warning(f"Missing required field: {field}")
                 return False
         
-        # Check that we have at least one TileWare product
-        if not isinstance(order_details['tileware_products'], list) or \
-           len(order_details['tileware_products']) == 0:
-            logger.warning("No TileWare products found")
+        # Check that we have at least one product
+        if not isinstance(order_details[product_field], list) or \
+           len(order_details[product_field]) == 0:
+            logger.warning(f"No {product_type} products found")
             return False
             
         # Validate shipping address
