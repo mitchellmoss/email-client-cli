@@ -13,6 +13,8 @@ html5lib>=1.1
 pypdf>=3.17.0
 PyPDF2>=3.0.0
 reportlab>=4.0.0
+pdfrw>=0.4
+PyMuPDF>=1.23.0
 openpyxl>=3.1.0
 pandas>=2.0.0
 
