@@ -321,10 +321,20 @@ class EmailSender:
         
         # Add PDF attachment
         try:
+            # Verify attachment exists and has content
+            if not os.path.exists(attachment_path):
+                logger.error(f"Attachment file not found: {attachment_path}")
+                return False
+                
+            file_size = os.path.getsize(attachment_path)
+            logger.info(f"Attaching PDF: {attachment_path} (size: {file_size} bytes)")
+            
             with open(attachment_path, 'rb') as attachment:
                 # Create MIMEBase instance
                 pdf_part = MIMEBase('application', 'pdf')
-                pdf_part.set_payload(attachment.read())
+                pdf_content = attachment.read()
+                pdf_part.set_payload(pdf_content)
+                logger.info(f"Read {len(pdf_content)} bytes from PDF")
                 
             # Encode file
             encoders.encode_base64(pdf_part)
@@ -337,6 +347,7 @@ class EmailSender:
             
             # Attach to message
             message.attach(pdf_part)
+            logger.info(f"Successfully attached PDF as {attachment_name}")
             
         except Exception as e:
             logger.error(f"Error attaching PDF: {e}")

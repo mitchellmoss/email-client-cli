@@ -39,89 +39,133 @@ class PDFOrderFormFiller:
             True if successful, False otherwise
         """
         try:
-            # Read the PDF template
-            reader = PdfReader(self.template_path)
-            writer = PdfWriter()
-            
-            # Get the first page (assuming single-page form)
-            page = reader.pages[0]
-            
-            # Try to fill form fields if they exist
-            if '/AcroForm' in reader.trailer['/Root']:
-                self._fill_acroform_fields(reader, writer, order_data)
-            else:
-                # If no form fields, overlay text
-                self._overlay_text_on_pdf(order_data, output_path)
+            # Try to fill form fields first (preferred method)
+            if self._fill_form_fields(order_data, output_path):
+                logger.info(f"Successfully filled order form using form fields: {output_path}")
                 return True
-            
-            # Write the filled PDF
-            with open(output_path, 'wb') as output_file:
-                writer.write(output_file)
-            
-            logger.info(f"Successfully filled order form: {output_path}")
-            return True
+            else:
+                # Fall back to overlay method if form fields don't work
+                logger.info("Form field filling failed, using overlay method")
+                self._overlay_text_on_pdf(order_data, output_path)
+                
+                # Verify the file was created and has content
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    logger.info(f"Successfully filled order form using overlay: {output_path} (size: {os.path.getsize(output_path)} bytes)")
+                    return True
+                else:
+                    logger.error(f"Failed to create filled PDF at {output_path}")
+                    return False
             
         except Exception as e:
             logger.error(f"Error filling PDF form: {e}")
             return False
     
-    def _fill_acroform_fields(self, reader, writer, order_data):
-        """Fill AcroForm fields in PDF."""
-        # Clone all pages
-        for page in reader.pages:
-            writer.add_page(page)
+    def _fill_form_fields(self, order_data: Dict, output_path: str) -> bool:
+        """
+        Fill PDF form using AcroForm fields.
         
-        # Get form fields
-        if '/AcroForm' in reader.trailer['/Root']:
+        Returns:
+            True if successful, False if should fall back to overlay method
+        """
+        try:
+            reader = PdfReader(self.template_path)
+            writer = PdfWriter()
+            
+            # Clone all pages
+            for page in reader.pages:
+                writer.add_page(page)
+            
+            # Check for AcroForm
+            if '/AcroForm' not in reader.trailer.get('/Root', {}):
+                logger.debug("No AcroForm found in PDF")
+                return False
+            
+            # Copy the AcroForm
             writer._root_object.update({
                 NameObject("/AcroForm"): reader.trailer["/Root"]["/AcroForm"]
             })
             
-            # Map order data to common form field names
-            field_mappings = {
-                'Date': datetime.now().strftime('%m/%d/%Y'),
-                'OrderDate': datetime.now().strftime('%m/%d/%Y'),
-                'CustomerName': order_data.get('customer_name', ''),
-                'Customer': order_data.get('customer_name', ''),
-                'ShipTo': order_data.get('customer_name', ''),
-                'ShipToName': order_data.get('customer_name', ''),
-                'Address': order_data.get('shipping_address', {}).get('street', ''),
-                'ShipAddress': order_data.get('shipping_address', {}).get('street', ''),
-                'City': order_data.get('shipping_address', {}).get('city', ''),
-                'ShipCity': order_data.get('shipping_address', {}).get('city', ''),
-                'State': order_data.get('shipping_address', {}).get('state', ''),
-                'ShipState': order_data.get('shipping_address', {}).get('state', ''),
-                'Zip': order_data.get('shipping_address', {}).get('zip', ''),
-                'ShipZip': order_data.get('shipping_address', {}).get('zip', ''),
-                'PONumber': order_data.get('order_id', ''),
-                'PO': order_data.get('order_id', ''),
-                'OrderNumber': order_data.get('order_id', ''),
+            # Prepare field data based on actual field names from the PDF
+            field_data = {
+                # Date
+                'DATE': datetime.now().strftime('%m/%d/%Y'),
+                
+                # Ship to address (S 1-4 fields)
+                'S 1': order_data.get('customer_name', ''),
+                'S 2': order_data.get('shipping_address', {}).get('street', ''),
+                'S 3': f"{order_data.get('shipping_address', {}).get('city', '')}, {order_data.get('shipping_address', {}).get('state', '')} {order_data.get('shipping_address', {}).get('zip', '')}",
+                'S 4': '',  # Additional address line if needed
+                
+                # Contact info
+                'Contact name': order_data.get('customer_name', ''),
+                'Phone': order_data.get('phone', ''),
+                
+                # Special instructions
+                'Special Instructions 1': f"Tile Pro Depot Order #{order_data.get('order_id', '')}",
+                'Special Instructions 2': f"Ship via: {order_data.get('shipping_method', 'Standard')}",
             }
             
-            # Fill product lines
+            # Add product lines
             products = order_data.get('laticrete_products', [])
-            for i, product in enumerate(products[:10]):  # Assume max 10 product lines
-                field_mappings.update({
-                    f'Item{i+1}': product.get('sku', ''),
-                    f'SKU{i+1}': product.get('sku', ''),
-                    f'Description{i+1}': product.get('name', ''),
-                    f'Qty{i+1}': str(product.get('quantity', '')),
-                    f'Quantity{i+1}': str(product.get('quantity', '')),
-                    f'Price{i+1}': product.get('price', ''),
-                    f'UnitPrice{i+1}': product.get('price', ''),
+            for i, product in enumerate(products[:13]):  # Form has 13 product rows
+                row_num = i + 1
+                field_data.update({
+                    f'Quantity OrderedRow{row_num}': str(product.get('quantity', '')),
+                    f'DescriptionRow{row_num}': product.get('name', ''),
+                    f'Item NumberRow{row_num}': product.get('sku', ''),
+                    f'Unit PriceRow{row_num}': product.get('price', ''),
+                    f'AmountRow{row_num}': self._calculate_amount(product.get('quantity', 0), product.get('price', '0'))
                 })
             
             # Update form fields
-            if '/Fields' in reader.trailer['/Root']['/AcroForm']:
-                fields = reader.trailer['/Root']['/AcroForm']['/Fields']
-                for field in fields:
-                    field_obj = field.get_object()
-                    if '/T' in field_obj:
-                        field_name = field_obj['/T']
-                        if field_name in field_mappings:
-                            field_obj.update({
-                                NameObject("/V"): TextStringObject(field_mappings[field_name])
+            if '/Fields' not in reader.trailer['/Root']['/AcroForm']:
+                logger.debug("No fields found in AcroForm")
+                return False
+            
+            fields = reader.trailer['/Root']['/AcroForm']['/Fields']
+            filled_count = 0
+            
+            for field_ref in fields:
+                try:
+                    field = field_ref.get_object()
+                    if '/T' in field:
+                        field_name = str(field['/T'])
+                        if field_name in field_data:
+                            # Update the field value
+                            field.update({
+                                NameObject("/V"): TextStringObject(field_data[field_name])
                             })
+                            filled_count += 1
+                            logger.debug(f"Filled field: {field_name}")
+                except Exception as e:
+                    logger.debug(f"Error filling field: {e}")
+            
+            if filled_count == 0:
+                logger.debug("No fields were filled")
+                return False
+            
+            logger.info(f"Filled {filled_count} form fields")
+            
+            # Write the output
+            with open(output_path, 'wb') as output_file:
+                writer.write(output_file)
+            
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Form field filling failed: {e}")
+            return False
+    
+    def _calculate_amount(self, quantity, unit_price):
+        """Calculate total amount from quantity and unit price."""
+        try:
+            # Remove $ and commas from price
+            price_str = str(unit_price).replace('$', '').replace(',', '')
+            price = float(price_str)
+            total = quantity * price
+            return f"${total:,.2f}"
+        except:
+            return ""
     
     def _overlay_text_on_pdf(self, order_data: Dict, output_path: str):
         """Overlay text on PDF when form fields aren't available."""
@@ -135,47 +179,56 @@ class PDFOrderFormFiller:
         # Set font
         c.setFont("Helvetica", 10)
         
-        # Add order information at approximate positions
-        # These positions would need to be adjusted based on the actual form
-        y_start = 700
-        line_height = 20
+        # Add order information at specific positions based on the form layout
+        # Date (top right)
+        c.drawString(450, 675, datetime.now().strftime('%m/%d/%Y'))
         
-        # Header info
-        c.drawString(450, y_start, datetime.now().strftime('%m/%d/%Y'))
-        c.drawString(100, y_start - line_height, f"Order #: {order_data.get('order_id', '')}")
+        # Ship to address (right side, under "SHIP" section)
+        c.drawString(350, 625, order_data.get('customer_name', ''))
+        c.drawString(350, 610, order_data.get('shipping_address', {}).get('street', ''))
+        c.drawString(350, 595, f"{order_data.get('shipping_address', {}).get('city', '')}, {order_data.get('shipping_address', {}).get('state', '')} {order_data.get('shipping_address', {}).get('zip', '')}")
         
-        # Customer info
-        c.drawString(100, y_start - 3*line_height, order_data.get('customer_name', ''))
+        # Contact info
+        c.drawString(420, 545, order_data.get('customer_name', ''))
+        c.drawString(420, 530, order_data.get('phone', ''))
         
-        # Shipping address
-        address = order_data.get('shipping_address', {})
-        c.drawString(100, y_start - 4*line_height, address.get('street', ''))
-        c.drawString(100, y_start - 5*line_height, 
-                    f"{address.get('city', '')}, {address.get('state', '')} {address.get('zip', '')}")
+        # Product details - starting positions based on form
+        y_start = 420  # First product row
+        row_height = 15.5  # Space between rows
         
-        # Product details
-        y_products = 450
         products = order_data.get('laticrete_products', [])
         
         c.setFont("Helvetica", 9)
-        for i, product in enumerate(products):
-            y_pos = y_products - (i * 25)
-            c.drawString(50, y_pos, product.get('sku', ''))
+        for i, product in enumerate(products[:13]):  # Max 13 rows on form
+            y_pos = y_start - (i * row_height)
             
-            # Add verification indicator if needed
-            name = product.get('name', '')[:50]  # Truncate long names
+            # Quantity
+            c.drawString(45, y_pos, str(product.get('quantity', '')))
+            
+            # Description
+            name = product.get('name', '')[:40]  # Truncate long names
             if product.get('needs_verification'):
                 name += ' *'
-            c.drawString(150, y_pos, name)
+            c.drawString(90, y_pos, name)
             
-            c.drawString(400, y_pos, str(product.get('quantity', '')))
-            c.drawString(450, y_pos, product.get('price', ''))
+            # Item Number (SKU)
+            c.drawString(330, y_pos, product.get('sku', ''))
+            
+            # Unit Price
+            c.drawString(420, y_pos, product.get('price', ''))
+            
+            # Amount
+            amount = self._calculate_amount(product.get('quantity', 0), product.get('price', '0'))
+            c.drawString(490, y_pos, amount)
+        
+        # Special instructions
+        c.setFont("Helvetica", 8)
+        c.drawString(170, 195, f"Tile Pro Depot Order #{order_data.get('order_id', '')}")
+        c.drawString(170, 180, f"Ship via: {order_data.get('shipping_method', 'Standard')}")
         
         # Add verification note if any products need it
         if any(p.get('needs_verification') for p in products):
-            c.setFont("Helvetica", 8)
-            c.drawString(50, y_products - (len(products) * 25) - 20, 
-                        "* Product requires manual price verification")
+            c.drawString(170, 165, "* Product requires manual price verification")
         
         # Save overlay
         c.save()
@@ -213,12 +266,14 @@ if __name__ == "__main__":
     test_order = {
         'order_id': 'TEST123',
         'customer_name': 'Test Customer',
+        'phone': '555-123-4567',
         'shipping_address': {
             'street': '123 Test Street',
             'city': 'Test City',
             'state': 'CA',
             'zip': '12345'
         },
+        'shipping_method': 'UPS Ground',
         'laticrete_products': [
             {
                 'name': 'HYDRO BAN Sheet Membrane',

@@ -93,15 +93,16 @@ Extract the following information and return as JSON:
 
 1. Order ID (from subject or content)
 2. Customer name
-3. All TileWare products with:
+3. Customer phone number (if available)
+4. All TileWare products with:
    - Product name (full description)
    - Product code/SKU (if available, usually in parentheses)
    - Quantity
    - Price (if available)
-4. Billing address (full address) - if available
-5. Shipping address (full address) - if not found, will use billing address
-6. Shipping method (e.g., UPS Ground, FedEx, etc.)
-7. Order total (if available)
+5. Billing address (full address) - if available
+6. Shipping address (full address) - if not found, will use billing address
+7. Shipping method (e.g., UPS Ground, FedEx, etc.)
+8. Order total (if available)
 
 IMPORTANT: Only include products that contain "TileWare" in the name.
 
@@ -109,6 +110,7 @@ Return the data in this exact JSON format:
 {{
     "order_id": "order number",
     "customer_name": "full name",
+    "phone": "phone number",
     "tileware_products": [
         {{
             "name": "product full name",
@@ -149,15 +151,16 @@ Extract the following information and return as JSON:
 
 1. Order ID (from subject or content)
 2. Customer name
-3. All LATICRETE products with:
+3. Customer phone number (if available)
+4. All LATICRETE products with:
    - Product name (full description)
    - Product code/SKU (if available)
    - Quantity
    - Price (if available)
-4. Billing address (full address) - if available
-5. Shipping address (full address) - if not found, will use billing address
-6. Shipping method (e.g., UPS Ground, FedEx, etc.)
-7. Order total (if available)
+5. Billing address (full address) - if available
+6. Shipping address (full address) - if not found, will use billing address
+7. Shipping method (e.g., UPS Ground, FedEx, etc.)
+8. Order total (if available)
 
 IMPORTANT: Only include products that contain "LATICRETE" or "Laticrete" in the name.
 
@@ -165,6 +168,7 @@ Return the data in this exact JSON format:
 {{
     "order_id": "order number",
     "customer_name": "full name",
+    "phone": "phone number",
     "laticrete_products": [
         {{
             "name": "product full name",
