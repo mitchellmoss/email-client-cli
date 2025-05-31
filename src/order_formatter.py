@@ -22,10 +22,9 @@ class OrderFormatter:
             Formatted order string
         """
         try:
-            # Start with the required header
+            # Start with the required header (removed duplicate greeting)
             lines = [
-                "Hi CS - Please place this order::::",
-                "Hi CS, please place this order -"
+                "Hi CS - Please place this order:"
             ]
             
             # Add TileWare products
@@ -148,8 +147,7 @@ class OrderFormatter:
             Formatted order string
         """
         lines = [
-            "Hi CS - Please place this order::::",
-            "Hi CS, please place this order -"
+            "Hi CS - Please place this order:"
         ]
         
         # Add products

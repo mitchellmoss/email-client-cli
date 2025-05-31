@@ -60,8 +60,9 @@ class EmailSender:
         message['To'] = recipient
         message['Date'] = datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')
         
-        # Add plain text part
-        text_part = MIMEText(order_text, 'plain')
+        # Add plain text part with signature
+        text_with_signature = order_text + "\n\n" + self._get_text_signature()
+        text_part = MIMEText(text_with_signature, 'plain')
         message.attach(text_part)
         
         # Also create HTML version for better formatting
@@ -71,6 +72,23 @@ class EmailSender:
         
         # Send with retry logic
         return self._send_with_retry(recipient, message)
+    
+    def _get_text_signature(self) -> str:
+        """Get plain text version of email signature."""
+        return """
+--
+Mitchell Moss
+Installations Plus Inc.
+774-233-0210 | 508-733-5839
+mitchell@installplusinc.com
+installplusinc.com
+131 Flanders Rd, Westborough, MA, 01581
+
+Connect with us:
+LinkedIn: https://www.linkedin.com/company/10612759
+Facebook: http://www.facebook.com/installplusinc
+Instagram: https://www.instagram.com/installations_plus/
+"""
     
     def _create_html_version(self, order_text: str, order_id: str) -> str:
         """Create HTML version of the order for better email formatting."""
@@ -162,11 +180,67 @@ class EmailSender:
                     <p>Please process this TileWare order as soon as possible.</p>
                 </div>
             </div>
+            
+            <!-- Email Signature -->
+            <div style="display: flex; align-items: center; padding: 10px; border-top: 2px solid #0078d4; margin-top: 30px;">
+                <div style="margin-right: 20px;">
+                    <img src="https://images.squarespace-cdn.com/content/v1/56ce6172c2ea51d77a671500/1533871562097-SIYDUTPEOQC3BIIQU126/Installations+Plus+logo+-+color+-+close+crop.png?format=1500w" alt="Installations Plus" width="120" height="60">
+                </div>
+                <div style="font-size: 14px; line-height: 1.5;">
+                    <div style="font-size: 18px; font-weight: bold; color: #0078d4; margin-bottom: 4px;">Mitchell Moss</div>
+                    <div style="color: #555; margin-bottom: 16px;">Installations Plus Inc.</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <a href="tel:774-233-0210" style="color: #0078d4; text-decoration: none; margin-right: 8px;">774-233-0210</a>
+                        <a href="tel:508-733-5839" style="color: #0078d4; text-decoration: none; margin-right: 8px;">508-733-5839</a>
+                        <a href="mailto:mitchell@installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">mitchell@installplusinc.com</a>
+                        <a href="https://installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">installplusinc.com</a>
+                        <span>131 Flanders Rd, Westborough, MA, 01581</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <a href="https://www.linkedin.com/company/10612759?trk=vsrp_companies_cluster_name&trkInfo=VSRPsearchId%3A185298431468515352362%2CVSRPtargetId%3A10612759%2CVSRPcmpt%3Acompanies_cluster"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="20" height="20"></a>
+                        <a href="http://www.facebook.com/installplusinc"><img src="https://cdn-icons-png.flaticon.com/512/174/174848.png" alt="Facebook" width="20" height="20"></a>
+                        <a href="https://www.instagram.com/installations_plus/"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="20" height="20"></a>
+                    </div>
+                </div>
+            </div>
         </body>
         </html>
         """
         
         return html
+    
+    def _add_html_signature_to_content(self, html_content: str) -> str:
+        """Add HTML signature to any HTML content."""
+        signature_html = """
+        <div style="display: flex; align-items: center; padding: 10px; border-top: 2px solid #0078d4; margin-top: 30px;">
+            <div style="margin-right: 20px;">
+                <img src="https://images.squarespace-cdn.com/content/v1/56ce6172c2ea51d77a671500/1533871562097-SIYDUTPEOQC3BIIQU126/Installations+Plus+logo+-+color+-+close+crop.png?format=1500w" alt="Installations Plus" width="120" height="60">
+            </div>
+            <div style="font-size: 14px; line-height: 1.5;">
+                <div style="font-size: 18px; font-weight: bold; color: #0078d4; margin-bottom: 4px;">Mitchell Moss</div>
+                <div style="color: #555; margin-bottom: 16px;">Installations Plus Inc.</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <a href="tel:774-233-0210" style="color: #0078d4; text-decoration: none; margin-right: 8px;">774-233-0210</a>
+                    <a href="tel:508-733-5839" style="color: #0078d4; text-decoration: none; margin-right: 8px;">508-733-5839</a>
+                    <a href="mailto:mitchell@installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">mitchell@installplusinc.com</a>
+                    <a href="https://installplusinc.com" style="color: #0078d4; text-decoration: none; margin-right: 8px;">installplusinc.com</a>
+                    <span>131 Flanders Rd, Westborough, MA, 01581</span>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <a href="https://www.linkedin.com/company/10612759?trk=vsrp_companies_cluster_name&trkInfo=VSRPsearchId%3A185298431468515352362%2CVSRPtargetId%3A10612759%2CVSRPcmpt%3Acompanies_cluster"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="20" height="20"></a>
+                    <a href="http://www.facebook.com/installplusinc"><img src="https://cdn-icons-png.flaticon.com/512/174/174848.png" alt="Facebook" width="20" height="20"></a>
+                    <a href="https://www.instagram.com/installations_plus/"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="20" height="20"></a>
+                </div>
+            </div>
+        </div>
+        """
+        
+        # If HTML content has closing body tag, insert before it
+        if '</body>' in html_content:
+            return html_content.replace('</body>', signature_html + '</body>')
+        else:
+            # Otherwise append to end
+            return html_content + signature_html
     
     def _send_with_retry(self, recipient: str, message: MIMEMultipart, 
                         max_retries: int = 3) -> bool:
@@ -313,9 +387,14 @@ class EmailSender:
         alternative = MIMEMultipart('alternative')
         message.attach(alternative)
         
-        # Add text and HTML parts
-        text_part = MIMEText(text_content, 'plain')
-        html_part = MIMEText(html_content, 'html')
+        # Add text and HTML parts with signature
+        text_with_signature = text_content + "\n\n" + self._get_text_signature()
+        text_part = MIMEText(text_with_signature, 'plain')
+        
+        # Add signature to HTML content
+        html_with_signature = self._add_html_signature_to_content(html_content)
+        html_part = MIMEText(html_with_signature, 'html')
+        
         alternative.attach(text_part)
         alternative.attach(html_part)
         
