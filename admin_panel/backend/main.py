@@ -13,7 +13,7 @@ try:
     # Try relative imports first (for package execution)
     from .config import settings
     from .database import engine, Base
-    from .api import auth, orders, products, email_config, analytics, system
+    from .api import auth, orders, products, email_config, analytics, system, email_templates
     from .models import user as user_models
     from .auth import get_password_hash
     from .database import get_db_session
@@ -21,7 +21,7 @@ except ImportError:
     # Fall back to absolute imports (for direct execution)
     from config import settings
     from database import engine, Base
-    from api import auth, orders, products, email_config, analytics, system
+    from api import auth, orders, products, email_config, analytics, system, email_templates
     from models import user as user_models
     from auth import get_password_hash
     from database import get_db_session
@@ -75,6 +75,7 @@ app.include_router(products.router, prefix=f"{settings.api_prefix}/products", ta
 app.include_router(email_config.router, prefix=f"{settings.api_prefix}/email-config", tags=["email-config"])
 app.include_router(analytics.router, prefix=f"{settings.api_prefix}/analytics", tags=["analytics"])
 app.include_router(system.router, prefix=f"{settings.api_prefix}/system", tags=["system"])
+app.include_router(email_templates.router, prefix=f"{settings.api_prefix}/email-templates", tags=["email-templates"])
 
 
 @app.get("/")

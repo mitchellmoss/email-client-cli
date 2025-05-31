@@ -37,10 +37,8 @@ export default function Settings() {
     }
   });
 
-  const [emailTemplate, setEmailTemplate] = useState({
-    subject: 'Order #{order_id} - {customer_name}',
-    body: ''
-  });
+  const [vendorTemplates, setVendorTemplates] = useState<any>(null);
+  const [selectedVendor, setSelectedVendor] = useState('tileware');
 
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ['emailConfig'],
@@ -74,14 +72,6 @@ export default function Settings() {
           log_level: config.processing?.log_level || 'INFO'
         }
       });
-      
-      // Also update email template if present
-      if (config.templates) {
-        setEmailTemplate({
-          subject: config.templates.subject || 'Order #{order_id} - {customer_name}',
-          body: config.templates.body || ''
-        });
-      }
     }
   }, [config]);
 
@@ -90,6 +80,18 @@ export default function Settings() {
     queryFn: () => api.get('/system/status').then(res => res.data),
     refetchInterval: 5000
   });
+
+  const { data: templates, isLoading: templatesLoading } = useQuery({
+    queryKey: ['emailTemplates'],
+    queryFn: () => api.get('/email-templates').then(res => res.data)
+  });
+
+  // Update vendor templates when data is received
+  useEffect(() => {
+    if (templates) {
+      setVendorTemplates(templates.vendors);
+    }
+  }, [templates]);
 
   const updateConfigMutation = useMutation({
     mutationFn: (data: any) => api.put('/email-config', data),
@@ -159,10 +161,30 @@ export default function Settings() {
     }
   });
 
+  const updateTemplatesMutation = useMutation({
+    mutationFn: (data: any) => api.put('/email-templates', data),
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Email templates updated successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to update email templates',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const handleSaveConfig = () => {
-    updateConfigMutation.mutate({
-      ...emailConfig,
-      templates: emailTemplate
+    updateConfigMutation.mutate(emailConfig);
+  };
+
+  const handleSaveTemplates = () => {
+    updateTemplatesMutation.mutate({
+      vendors: vendorTemplates
     });
   };
 
@@ -428,38 +450,163 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Templates</CardTitle>
-              <CardDescription>
-                Customize email templates for order notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email_subject">Subject Template</Label>
-                <Input
-                  id="email_subject"
-                  value={emailTemplate.subject}
-                  onChange={(e) => setEmailTemplate({ ...emailTemplate, subject: e.target.value })}
-                  placeholder="Order #{order_id} - {customer_name}"
-                />
-                <p className="text-sm text-gray-500">
-                  Available variables: {'{order_id}'}, {'{customer_name}'}, {'{order_date}'}
-                </p>
+          {vendorTemplates && (
+            <>
+              <div className="flex space-x-4 mb-4">
+                <Button
+                  variant={selectedVendor === 'tileware' ? 'default' : 'outline'}
+                  onClick={() => setSelectedVendor('tileware')}
+                >
+                  TileWare Templates
+                </Button>
+                <Button
+                  variant={selectedVendor === 'laticrete' ? 'default' : 'outline'}
+                  onClick={() => setSelectedVendor('laticrete')}
+                >
+                  Laticrete Templates
+                </Button>
+                <Button
+                  variant={selectedVendor === 'signature' ? 'default' : 'outline'}
+                  onClick={() => setSelectedVendor('signature')}
+                >
+                  Email Signature
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email_body">Body Template</Label>
-                <Textarea
-                  id="email_body"
-                  value={emailTemplate.body}
-                  onChange={(e) => setEmailTemplate({ ...emailTemplate, body: e.target.value })}
-                  placeholder="Email body template..."
-                  rows={10}
-                />
+
+              {selectedVendor !== 'signature' ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{vendorTemplates[selectedVendor]?.name || selectedVendor} Email Template</CardTitle>
+                    <CardDescription>
+                      Customize email template for {vendorTemplates[selectedVendor]?.name || selectedVendor} orders
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`${selectedVendor}_recipient`}>Recipient Email</Label>
+                      <Input
+                        id={`${selectedVendor}_recipient`}
+                        type="email"
+                        value={vendorTemplates[selectedVendor]?.recipient || ''}
+                        onChange={(e) => setVendorTemplates({
+                          ...vendorTemplates,
+                          [selectedVendor]: {
+                            ...vendorTemplates[selectedVendor],
+                            recipient: e.target.value
+                          }
+                        })}
+                        placeholder="cs@company.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${selectedVendor}_subject`}>Subject Template</Label>
+                      <Input
+                        id={`${selectedVendor}_subject`}
+                        value={vendorTemplates[selectedVendor]?.subject || ''}
+                        onChange={(e) => setVendorTemplates({
+                          ...vendorTemplates,
+                          [selectedVendor]: {
+                            ...vendorTemplates[selectedVendor],
+                            subject: e.target.value
+                          }
+                        })}
+                        placeholder="Order #{order_id} - {customer_name}"
+                      />
+                      <p className="text-sm text-gray-500">
+                        Available variables: {vendorTemplates[selectedVendor]?.variables?.map((v: string) => `{${v}}`).join(', ')}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${selectedVendor}_body`}>Body Template</Label>
+                      <Textarea
+                        id={`${selectedVendor}_body`}
+                        value={vendorTemplates[selectedVendor]?.body || ''}
+                        onChange={(e) => setVendorTemplates({
+                          ...vendorTemplates,
+                          [selectedVendor]: {
+                            ...vendorTemplates[selectedVendor],
+                            body: e.target.value
+                          }
+                        })}
+                        placeholder="Email body template..."
+                        rows={12}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div>
+                        <p className="text-sm font-medium">Format: <span className="font-normal">{vendorTemplates[selectedVendor]?.format || 'text/html'}</span></p>
+                        <p className="text-sm font-medium">Attachments: <span className="font-normal">{vendorTemplates[selectedVendor]?.attachments ? 'Yes' : 'No'}</span></p>
+                        {vendorTemplates[selectedVendor]?.attachment_type && (
+                          <p className="text-sm font-medium">Attachment Type: <span className="font-normal">{vendorTemplates[selectedVendor].attachment_type.toUpperCase()}</span></p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Email Signature</CardTitle>
+                    <CardDescription>
+                      Customize the email signature used for all vendor emails
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signature_text">Plain Text Signature</Label>
+                      <Textarea
+                        id="signature_text"
+                        value={vendorTemplates.signature?.text || ''}
+                        onChange={(e) => setVendorTemplates({
+                          ...vendorTemplates,
+                          signature: {
+                            ...vendorTemplates.signature,
+                            text: e.target.value
+                          }
+                        })}
+                        placeholder="Plain text email signature..."
+                        rows={8}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (confirm(`Reset ${selectedVendor} template to default?`)) {
+                      api.post(`/email-templates/reset/${selectedVendor}`).then(() => {
+                        toast({
+                          title: 'Success',
+                          description: 'Template reset to default',
+                        });
+                        // Refetch templates
+                        window.location.reload();
+                      });
+                    }
+                  }}
+                  disabled={selectedVendor === 'signature'}
+                >
+                  Reset to Default
+                </Button>
+                <Button
+                  onClick={handleSaveTemplates}
+                  disabled={updateTemplatesMutation.isPending}
+                >
+                  {updateTemplatesMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Templates
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="system" className="space-y-4">
