@@ -124,8 +124,8 @@ else
     source venv/bin/activate
 fi
 
-# Start main.py in background
-python main.py > "$LOG_DIR/email_processor.log" 2>&1 &
+# Start main.py in background using venv python
+./venv/bin/python main.py > "$LOG_DIR/email_processor.log" 2>&1 &
 MAIN_PID=$!
 print_success "Email processor started (PID: $MAIN_PID)"
 
@@ -144,8 +144,8 @@ else
     source venv/bin/activate
 fi
 
-# Start FastAPI backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload > "$LOG_DIR/admin_backend.log" 2>&1 &
+# Start FastAPI backend using venv python
+./venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload > "$LOG_DIR/admin_backend.log" 2>&1 &
 BACKEND_PID=$!
 print_success "Admin backend starting (PID: $BACKEND_PID)"
 
