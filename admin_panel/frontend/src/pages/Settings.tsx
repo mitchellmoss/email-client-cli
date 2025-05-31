@@ -13,17 +13,28 @@ import { Textarea } from '@/components/ui/textarea';
 export default function Settings() {
   const { toast } = useToast();
   const [emailConfig, setEmailConfig] = useState({
-    imap_server: '',
-    imap_port: 993,
-    email_address: '',
-    email_password: '',
-    smtp_server: '',
-    smtp_port: 587,
-    smtp_username: '',
-    smtp_password: '',
-    cs_email: '',
-    laticrete_cs_email: '',
-    check_interval_minutes: 5
+    imap: {
+      server: '',
+      port: 993,
+      email_address: '',
+      password: '',
+      has_password: false
+    },
+    smtp: {
+      server: '',
+      port: 587,
+      username: '',
+      password: '',
+      has_password: false
+    },
+    recipients: {
+      cs_email: '',
+      laticrete_cs_email: ''
+    },
+    processing: {
+      check_interval_minutes: 5,
+      log_level: 'INFO'
+    }
   });
 
   const [emailTemplate, setEmailTemplate] = useState({
@@ -35,7 +46,32 @@ export default function Settings() {
     queryKey: ['emailConfig'],
     queryFn: () => api.get('/email-config').then(res => res.data),
     onSuccess: (data) => {
-      setEmailConfig(data);
+      if (data) {
+        setEmailConfig({
+          imap: {
+            server: data.imap?.server || '',
+            port: data.imap?.port || 993,
+            email_address: data.imap?.email_address || '',
+            password: '',
+            has_password: data.imap?.has_password || false
+          },
+          smtp: {
+            server: data.smtp?.server || '',
+            port: data.smtp?.port || 587,
+            username: data.smtp?.username || '',
+            password: '',
+            has_password: data.smtp?.has_password || false
+          },
+          recipients: {
+            cs_email: data.recipients?.cs_email || '',
+            laticrete_cs_email: data.recipients?.laticrete_cs_email || ''
+          },
+          processing: {
+            check_interval_minutes: data.processing?.check_interval_minutes || 5,
+            log_level: data.processing?.log_level || 'INFO'
+          }
+        });
+      }
     }
   });
 
@@ -155,8 +191,11 @@ export default function Settings() {
                   <Label htmlFor="imap_server">IMAP Server</Label>
                   <Input
                     id="imap_server"
-                    value={emailConfig.imap_server}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, imap_server: e.target.value })}
+                    value={emailConfig.imap.server}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      imap: { ...emailConfig.imap, server: e.target.value }
+                    })}
                     placeholder="imap.gmail.com"
                   />
                 </div>
@@ -165,8 +204,11 @@ export default function Settings() {
                   <Input
                     id="imap_port"
                     type="number"
-                    value={emailConfig.imap_port}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, imap_port: parseInt(e.target.value) })}
+                    value={emailConfig.imap.port}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      imap: { ...emailConfig.imap, port: parseInt(e.target.value) }
+                    })}
                     placeholder="993"
                   />
                 </div>
@@ -177,8 +219,11 @@ export default function Settings() {
                   <Input
                     id="email_address"
                     type="email"
-                    value={emailConfig.email_address}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, email_address: e.target.value })}
+                    value={emailConfig.imap.email_address}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      imap: { ...emailConfig.imap, email_address: e.target.value }
+                    })}
                     placeholder="monitor@gmail.com"
                   />
                 </div>
@@ -187,10 +232,16 @@ export default function Settings() {
                   <Input
                     id="email_password"
                     type="password"
-                    value={emailConfig.email_password}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, email_password: e.target.value })}
-                    placeholder="App password"
+                    value={emailConfig.imap.password}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      imap: { ...emailConfig.imap, password: e.target.value }
+                    })}
+                    placeholder={emailConfig.imap.has_password ? "Password is set (leave blank to keep current)" : "App password"}
                   />
+                  {emailConfig.imap.has_password && (
+                    <p className="text-xs text-green-600">✓ Password is currently set</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -209,8 +260,11 @@ export default function Settings() {
                   <Label htmlFor="smtp_server">SMTP Server</Label>
                   <Input
                     id="smtp_server"
-                    value={emailConfig.smtp_server}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_server: e.target.value })}
+                    value={emailConfig.smtp.server}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      smtp: { ...emailConfig.smtp, server: e.target.value }
+                    })}
                     placeholder="smtp.gmail.com"
                   />
                 </div>
@@ -219,8 +273,11 @@ export default function Settings() {
                   <Input
                     id="smtp_port"
                     type="number"
-                    value={emailConfig.smtp_port}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_port: parseInt(e.target.value) })}
+                    value={emailConfig.smtp.port}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      smtp: { ...emailConfig.smtp, port: parseInt(e.target.value) }
+                    })}
                     placeholder="587"
                   />
                 </div>
@@ -230,8 +287,11 @@ export default function Settings() {
                   <Label htmlFor="smtp_username">SMTP Username</Label>
                   <Input
                     id="smtp_username"
-                    value={emailConfig.smtp_username}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_username: e.target.value })}
+                    value={emailConfig.smtp.username}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      smtp: { ...emailConfig.smtp, username: e.target.value }
+                    })}
                     placeholder="sender@gmail.com"
                   />
                 </div>
@@ -240,10 +300,16 @@ export default function Settings() {
                   <Input
                     id="smtp_password"
                     type="password"
-                    value={emailConfig.smtp_password}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, smtp_password: e.target.value })}
-                    placeholder="App password"
+                    value={emailConfig.smtp.password}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      smtp: { ...emailConfig.smtp, password: e.target.value }
+                    })}
+                    placeholder={emailConfig.smtp.has_password ? "Password is set (leave blank to keep current)" : "App password"}
                   />
+                  {emailConfig.smtp.has_password && (
+                    <p className="text-xs text-green-600">✓ Password is currently set</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -263,8 +329,11 @@ export default function Settings() {
                   <Input
                     id="cs_email"
                     type="email"
-                    value={emailConfig.cs_email}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, cs_email: e.target.value })}
+                    value={emailConfig.recipients.cs_email}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      recipients: { ...emailConfig.recipients, cs_email: e.target.value }
+                    })}
                     placeholder="cs@company.com"
                   />
                 </div>
@@ -273,21 +342,47 @@ export default function Settings() {
                   <Input
                     id="laticrete_cs_email"
                     type="email"
-                    value={emailConfig.laticrete_cs_email}
-                    onChange={(e) => setEmailConfig({ ...emailConfig, laticrete_cs_email: e.target.value })}
+                    value={emailConfig.recipients.laticrete_cs_email}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      recipients: { ...emailConfig.recipients, laticrete_cs_email: e.target.value }
+                    })}
                     placeholder="lat-cs@company.com"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="check_interval">Check Interval (minutes)</Label>
-                <Input
-                  id="check_interval"
-                  type="number"
-                  value={emailConfig.check_interval_minutes}
-                  onChange={(e) => setEmailConfig({ ...emailConfig, check_interval_minutes: parseInt(e.target.value) })}
-                  placeholder="5"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="check_interval">Check Interval (minutes)</Label>
+                  <Input
+                    id="check_interval"
+                    type="number"
+                    value={emailConfig.processing.check_interval_minutes}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      processing: { ...emailConfig.processing, check_interval_minutes: parseInt(e.target.value) }
+                    })}
+                    placeholder="5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="log_level">Log Level</Label>
+                  <select
+                    id="log_level"
+                    value={emailConfig.processing.log_level}
+                    onChange={(e) => setEmailConfig({ 
+                      ...emailConfig, 
+                      processing: { ...emailConfig.processing, log_level: e.target.value }
+                    })}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                </div>
               </div>
             </CardContent>
           </Card>
