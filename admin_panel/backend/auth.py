@@ -9,10 +9,25 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from .config import settings
-from .database import get_db
-from .models.user import User
-from .schemas.user import TokenData
+try:
+    from .config import settings
+except ImportError:
+    from config import settings
+
+try:
+    from .database import get_db
+except ImportError:
+    from database import get_db
+
+try:
+    from .models.user import User
+except ImportError:
+    from models.user import User
+
+try:
+    from .schemas.user import TokenData
+except ImportError:
+    from schemas.user import TokenData
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

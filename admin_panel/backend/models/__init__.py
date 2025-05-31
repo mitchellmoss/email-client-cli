@@ -1,6 +1,13 @@
 """Database models."""
 
-from .user import User
-from .product import ProductMapping
+try:
+    from .user import User
+except ImportError:
+    from user import User
+
+try:
+    from .product import ProductMapping
+except ImportError:
+    from product import ProductMapping
 
 __all__ = ["User", "ProductMapping"]

@@ -3,7 +3,10 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float
 from sqlalchemy.sql import func
 
-from ..database import Base
+try:
+    from ..database import Base
+except ImportError:
+    from database import Base
 
 
 class ProductMapping(Base):

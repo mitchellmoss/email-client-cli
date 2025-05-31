@@ -6,9 +6,20 @@ from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 
-from ..database import get_db
-from ..auth import get_current_active_user
-from ..models.user import User
+try:
+    from ..database import get_db
+except ImportError:
+    from database import get_db
+
+try:
+    from ..auth import get_current_active_user
+except ImportError:
+    from auth import get_current_active_user
+
+try:
+    from ..models.user import User
+except ImportError:
+    from models.user import User
 
 router = APIRouter()
 

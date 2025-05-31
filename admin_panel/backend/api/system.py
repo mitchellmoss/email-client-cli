@@ -8,9 +8,20 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from ..auth import get_current_active_user
-from ..models.user import User
-from ..config import settings
+try:
+    from ..auth import get_current_active_user
+except ImportError:
+    from auth import get_current_active_user
+
+try:
+    from ..models.user import User
+except ImportError:
+    from models.user import User
+
+try:
+    from ..config import settings
+except ImportError:
+    from config import settings
 
 router = APIRouter()
 

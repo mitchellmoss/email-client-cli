@@ -9,12 +9,22 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from .config import settings
-from .database import engine, Base
-from .api import auth, orders, products, email_config, analytics, system
-from .models import user as user_models
-from .auth import get_password_hash
-from .database import get_db_session
+try:
+    # Try relative imports first (for package execution)
+    from .config import settings
+    from .database import engine, Base
+    from .api import auth, orders, products, email_config, analytics, system
+    from .models import user as user_models
+    from .auth import get_password_hash
+    from .database import get_db_session
+except ImportError:
+    # Fall back to absolute imports (for direct execution)
+    from config import settings
+    from database import engine, Base
+    from api import auth, orders, products, email_config, analytics, system
+    from models import user as user_models
+    from auth import get_password_hash
+    from database import get_db_session
 
 
 @asynccontextmanager
@@ -25,7 +35,10 @@ async def lifespan(app: FastAPI):
     
     # Create default admin user if not exists
     with get_db_session() as db:
-        from .models.user import User
+        try:
+            from .models.user import User
+        except ImportError:
+            from models.user import User
         admin = db.query(User).filter(User.email == settings.admin_email).first()
         if not admin:
             admin = User(

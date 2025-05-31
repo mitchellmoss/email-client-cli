@@ -7,11 +7,30 @@ from sqlalchemy import text
 import json
 from datetime import datetime, timedelta
 
-from ..database import get_db
-from ..auth import get_current_active_user
-from ..models.user import User
-from ..schemas.order import OrderResponse, OrderDetail, OrderStats
-from ..services.order_service import OrderService
+try:
+    from ..database import get_db
+except ImportError:
+    from database import get_db
+
+try:
+    from ..auth import get_current_active_user
+except ImportError:
+    from auth import get_current_active_user
+
+try:
+    from ..models.user import User
+except ImportError:
+    from models.user import User
+
+try:
+    from ..schemas.order import OrderResponse, OrderDetail, OrderStats
+except ImportError:
+    from schemas.order import OrderResponse, OrderDetail, OrderStats
+
+try:
+    from ..services.order_service import OrderService
+except ImportError:
+    from services.order_service import OrderService
 
 router = APIRouter()
 

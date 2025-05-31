@@ -14,7 +14,10 @@ sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 from src.order_tracker import OrderTracker
 from src.email_sender import EmailSender
 from src.order_formatter import OrderFormatter
-from ..config import settings
+try:
+    from ..config import settings
+except ImportError:
+    from config import settings
 
 
 class OrderService:

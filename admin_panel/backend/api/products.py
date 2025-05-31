@@ -4,15 +4,38 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..auth import get_current_active_user
-from ..models.user import User
-from ..models.product import ProductMapping
-from ..schemas.product import (
-    ProductMappingCreate,
-    ProductMappingUpdate,
-    ProductMappingResponse
-)
+try:
+    from ..database import get_db
+except ImportError:
+    from database import get_db
+
+try:
+    from ..auth import get_current_active_user
+except ImportError:
+    from auth import get_current_active_user
+
+try:
+    from ..models.user import User
+except ImportError:
+    from models.user import User
+
+try:
+    from ..models.product import ProductMapping
+except ImportError:
+    from models.product import ProductMapping
+
+try:
+    from ..schemas.product import (
+        ProductMappingCreate,
+        ProductMappingUpdate,
+        ProductMappingResponse
+    )
+except ImportError:
+    from schemas.product import (
+        ProductMappingCreate,
+        ProductMappingUpdate,
+        ProductMappingResponse
+    )
 
 router = APIRouter()
 
