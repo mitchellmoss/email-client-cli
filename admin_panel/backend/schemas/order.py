@@ -23,6 +23,7 @@ class OrderResponse(BaseModel):
     customer_name: Optional[str] = None
     tileware_products: Optional[List[OrderProduct]] = None
     order_total: Optional[str] = None
+    order_data: Optional[Dict[str, Any]] = None
     created_at: datetime
 
 
@@ -39,6 +40,8 @@ class OrderDetail(OrderResponse):
     """Detailed order response schema."""
     formatted_content: Optional[str] = None
     email_uid: Optional[str] = None
+    order_data: Optional[Dict[str, Any]] = None
+    original_html: Optional[str] = None
     history: List[OrderHistory] = []
 
 

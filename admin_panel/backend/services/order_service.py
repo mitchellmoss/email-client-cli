@@ -56,6 +56,7 @@ class OrderService:
                 customer_name,
                 tileware_products,
                 order_total,
+                order_data,
                 created_at
             FROM sent_orders
             WHERE 1=1
@@ -90,6 +91,11 @@ class OrderService:
             order = dict(row._mapping)
             if order['tileware_products']:
                 order['tileware_products'] = json.loads(order['tileware_products'])
+            if order.get('order_data'):
+                try:
+                    order['order_data'] = json.loads(order['order_data'])
+                except json.JSONDecodeError:
+                    order['order_data'] = None
             orders.append(order)
         
         return orders
