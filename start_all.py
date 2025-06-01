@@ -174,12 +174,24 @@ def main():
     backend_venv = setup_venv(backend_dir, backend_dir / "requirements.txt")
     backend_python = get_python_executable(backend_venv)
     
+    # Set up environment with PYTHONPATH for imports
+    backend_env = os.environ.copy()
+    pythonpath_parts = []
+    if 'PYTHONPATH' in backend_env:
+        pythonpath_parts.append(backend_env['PYTHONPATH'])
+    pythonpath_parts.extend([
+        str(backend_dir),
+        str(backend_dir.parent.parent)  # Root project directory
+    ])
+    backend_env['PYTHONPATH'] = os.pathsep.join(pythonpath_parts)
+    
     with open(log_dir / "admin_backend.log", "w") as log_file:
         process = subprocess.Popen(
             [str(backend_python), "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
             stdout=log_file,
             stderr=subprocess.STDOUT,
-            cwd=backend_dir
+            cwd=backend_dir,
+            env=backend_env
         )
         processes.append(process)
     

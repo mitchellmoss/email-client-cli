@@ -144,6 +144,9 @@ else
     source venv/bin/activate
 fi
 
+# Set PYTHONPATH to include parent directories for imports
+export PYTHONPATH="${PYTHONPATH}:$(pwd):$(pwd)/../.."
+
 # Start FastAPI backend using venv python
 ./venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload > "$LOG_DIR/admin_backend.log" 2>&1 &
 BACKEND_PID=$!
