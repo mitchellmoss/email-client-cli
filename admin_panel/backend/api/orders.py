@@ -23,9 +23,9 @@ except ImportError:
     from models.user import User
 
 try:
-    from ..schemas.order import OrderResponse, OrderDetail, OrderStats
+    from ..schemas.order import OrderResponse, OrderDetail, OrderStats, OrderUpdate
 except ImportError:
-    from schemas.order import OrderResponse, OrderDetail, OrderStats
+    from schemas.order import OrderResponse, OrderDetail, OrderStats, OrderUpdate
 
 try:
     from ..services.order_service import OrderService
@@ -99,6 +99,41 @@ async def resend_order(
         raise HTTPException(status_code=400, detail="Failed to resend order")
     
     return {"message": "Order resent successfully"}
+
+
+@router.patch("/{order_id}", response_model=OrderDetail)
+async def update_order(
+    order_id: str,
+    order_update: OrderUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update an order with validation and audit logging."""
+    service = OrderService(db)
+    
+    # Convert Pydantic model to dict, excluding None values
+    updates = order_update.dict(exclude_none=True)
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    try:
+        # Pass the current user's email for audit logging
+        updated_order = service.update_order(order_id, updates, current_user.email)
+        
+        if not updated_order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        return updated_order
+        
+    except ValueError as ve:
+        # Handle validation errors (e.g., duplicate order_id)
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        # Log the error and return a generic error message
+        import logging
+        logging.error(f"Error updating order {order_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error updating order")
 
 
 @router.delete("/{order_id}")

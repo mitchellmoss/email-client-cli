@@ -54,3 +54,45 @@ class OrderStats(BaseModel):
     daily_counts: List[DailyOrderCount]
     duplicate_attempts_blocked: int
     period_days: int
+
+
+class OrderUpdate(BaseModel):
+    """Order update schema."""
+    order_id: Optional[str] = None
+    email_subject: Optional[str] = None
+    sent_to: Optional[str] = None
+    customer_name: Optional[str] = None
+    tileware_products: Optional[List[OrderProduct]] = None
+    order_total: Optional[str] = None
+    formatted_content: Optional[str] = None
+    order_data: Optional[Dict[str, Any]] = None
+    original_html: Optional[str] = None
+    
+    class Config:
+        """Pydantic configuration."""
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+    
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate_to_json
+        
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, dict):
+            # Handle tileware_products if it's a JSON string
+            if 'tileware_products' in value and isinstance(value['tileware_products'], str):
+                try:
+                    import json
+                    value['tileware_products'] = json.loads(value['tileware_products'])
+                except:
+                    pass
+            # Handle order_data if it's a JSON string
+            if 'order_data' in value and isinstance(value['order_data'], str):
+                try:
+                    import json
+                    value['order_data'] = json.loads(value['order_data'])
+                except:
+                    pass
+        return value

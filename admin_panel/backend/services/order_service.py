@@ -169,6 +169,133 @@ class OrderService:
             self.db.rollback()
             return False
     
+    def update_order(self, order_id: str, updates: Dict[str, Any], user_email: str) -> Optional[Dict[str, Any]]:
+        """Update an order with validation and audit logging."""
+        try:
+            # First check if the order exists
+            existing_order = self.get_order_detail(order_id)
+            if not existing_order:
+                logger.error(f"Order not found for update: {order_id}")
+                return None
+            
+            # Prepare the update data
+            update_fields = []
+            params = {"original_order_id": order_id}
+            
+            # Track changes for audit log
+            changes = {}
+            
+            # Handle order_id update with duplicate check
+            if "order_id" in updates and updates["order_id"] != order_id:
+                new_order_id = updates["order_id"]
+                # Check for duplicates
+                duplicate_check = self.db.execute(
+                    text("SELECT COUNT(*) FROM sent_orders WHERE order_id = :new_id AND order_id != :old_id"),
+                    {"new_id": new_order_id, "old_id": order_id}
+                ).scalar()
+                
+                if duplicate_check > 0:
+                    raise ValueError(f"Order ID {new_order_id} already exists")
+                
+                update_fields.append("order_id = :new_order_id")
+                params["new_order_id"] = new_order_id
+                changes["order_id"] = {"old": order_id, "new": new_order_id}
+            
+            # Handle other field updates
+            field_mapping = {
+                "email_subject": "email_subject",
+                "sent_to": "sent_to",
+                "customer_name": "customer_name",
+                "order_total": "order_total",
+                "formatted_content": "formatted_content",
+                "original_html": "original_html"
+            }
+            
+            for field_key, db_field in field_mapping.items():
+                if field_key in updates:
+                    update_fields.append(f"{db_field} = :{field_key}")
+                    params[field_key] = updates[field_key]
+                    old_value = existing_order.get(field_key)
+                    changes[field_key] = {"old": old_value, "new": updates[field_key]}
+            
+            # Handle JSON fields
+            if "tileware_products" in updates:
+                # Convert to JSON string
+                products_json = json.dumps(updates["tileware_products"]) if updates["tileware_products"] else None
+                update_fields.append("tileware_products = :tileware_products")
+                params["tileware_products"] = products_json
+                old_products = existing_order.get("tileware_products")
+                changes["tileware_products"] = {
+                    "old": old_products,
+                    "new": updates["tileware_products"]
+                }
+            
+            if "order_data" in updates:
+                # Convert to JSON string
+                order_data_json = json.dumps(updates["order_data"]) if updates["order_data"] else None
+                update_fields.append("order_data = :order_data")
+                params["order_data"] = order_data_json
+                # Handle order_data that might already be parsed
+                old_order_data = existing_order.get("order_data")
+                if isinstance(old_order_data, str):
+                    try:
+                        old_order_data = json.loads(old_order_data)
+                    except:
+                        old_order_data = None
+                changes["order_data"] = {
+                    "old": old_order_data,
+                    "new": updates["order_data"]
+                }
+            
+            if not update_fields:
+                logger.warning(f"No valid fields to update for order {order_id}")
+                return existing_order
+            
+            # Build and execute update query
+            update_query = f"""
+                UPDATE sent_orders 
+                SET {', '.join(update_fields)}
+                WHERE order_id = :original_order_id
+            """
+            
+            self.db.execute(text(update_query), params)
+            
+            # Log the update action with detailed changes
+            audit_details = {
+                "user": user_email,
+                "action": "order_updated",
+                "changes": changes,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            self.order_tracker._log_action(
+                order_id,
+                "updated",
+                json.dumps(audit_details)
+            )
+            
+            # If order_id was changed, update the log entries
+            if "order_id" in updates and updates["order_id"] != order_id:
+                self.db.execute(
+                    text("UPDATE order_processing_log SET order_id = :new_id WHERE order_id = :old_id"),
+                    {"new_id": updates["order_id"], "old_id": order_id}
+                )
+            
+            self.db.commit()
+            
+            # Return the updated order
+            final_order_id = updates.get("order_id", order_id)
+            return self.get_order_detail(final_order_id)
+            
+        except ValueError as ve:
+            self.db.rollback()
+            logger.error(f"Validation error updating order {order_id}: {ve}")
+            raise
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error updating order {order_id}: {e}", exc_info=True)
+            return None
+    
     def _resend_tileware_order(self, order: Dict[str, Any], order_id: str) -> bool:
         """Resend a TileWare order."""
         # Get email signature from settings

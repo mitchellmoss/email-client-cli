@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { format } from 'date-fns';
-import { Loader2, Search, RefreshCw } from 'lucide-react';
+import { Loader2, Search, RefreshCw, Edit } from 'lucide-react';
+import { EditOrderModal } from '@/components/EditOrderModal';
 
 export default function Orders() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const limit = 20;
 
   const { data: orders, isLoading, refetch } = useQuery({
@@ -86,7 +89,17 @@ export default function Orders() {
                         {order.customer_name}
                       </p>
                     </div>
-                    <div className="ml-2 flex-shrink-0 flex">
+                    <div className="ml-2 flex-shrink-0 flex space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingOrder(order);
+                          setEditModalOpen(true);
+                        }}
+                        className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-900 inline-flex items-center"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </button>
                       <button
                         onClick={() => handleResend(order.order_id)}
                         className="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-900"
@@ -141,6 +154,13 @@ export default function Orders() {
           </button>
         </div>
       )}
+
+      {/* Edit Order Modal */}
+      <EditOrderModal
+        order={editingOrder}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+      />
     </div>
   );
 }
