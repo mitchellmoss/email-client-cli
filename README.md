@@ -17,6 +17,7 @@ An intelligent email processing system that monitors emails from Tile Pro Depot 
 - [Cost Estimation](#-cost-estimation)
 - [Security](#-security-best-practices)
 - [Maintenance](#️-maintenance)
+- [Production Deployment](#-production-deployment)
 - [Support](#-support)
 
 ## ✨ Key Features
@@ -546,6 +547,113 @@ cd admin_panel/frontend && npm update
 - **API Documentation**: http://localhost:8000/docs (when running)
 - **Anthropic Console**: https://console.anthropic.com
 - **Gmail App Passwords**: https://myaccount.google.com/apppasswords
+
+## 🚀 Production Deployment
+
+### Quick Deploy on Linux Server
+
+The project includes production-ready configuration for deploying on a Linux server with configurable URLs.
+
+#### Prerequisites
+- Ubuntu 20.04+ or similar Linux distribution
+- Root or sudo access
+- Domain name pointed to your server
+- Ports 80 and 443 open in firewall
+
+#### 1. Clone and Configure
+
+```bash
+# Clone on your server
+git clone <repository-url>
+cd email-client-cli
+
+# Set up production environment
+cp .env.production.example .env.production
+nano .env.production  # Edit with your settings
+```
+
+#### 2. Configure URLs
+
+In `.env.production`, set your domains:
+```env
+# Frontend URL (your main domain)
+FRONTEND_URL=https://admin.example.com
+
+# API configuration
+CORS_ORIGINS=https://admin.example.com,https://www.admin.example.com
+
+# Generate secure secret key
+SECRET_KEY=$(openssl rand -hex 32)
+```
+
+#### 3. Deploy with Script
+
+```bash
+# Set your domain
+export DOMAIN=example.com
+export FRONTEND_API_URL=https://api.example.com
+
+# Run automated deployment
+sudo ./deploy/deploy.sh
+
+# Set up SSL certificates
+sudo ./deploy/setup-ssl.sh
+```
+
+#### 4. Access Your System
+
+- **Admin Panel**: https://admin.example.com
+- **API Docs**: https://api.example.com/docs
+- **Health Check**: https://admin.example.com/health
+
+### Manual Deployment Options
+
+#### Docker Deployment
+
+```bash
+# Build and run with docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker-compose -f docker-compose.prod.yml logs -f
+```
+
+#### Systemd Services
+
+The deployment script installs two systemd services:
+- `email-processor.service` - Main email processing
+- `email-admin-backend.service` - Admin panel API
+
+```bash
+# Check status
+sudo systemctl status email-processor
+sudo systemctl status email-admin-backend
+
+# View logs
+sudo journalctl -u email-processor -f
+sudo journalctl -u email-admin-backend -f
+```
+
+#### Nginx Configuration
+
+The included nginx configuration provides:
+- HTTPS with SSL/TLS
+- Reverse proxy for API
+- Static file serving for frontend
+- Security headers
+- Gzip compression
+
+### Production Checklist
+
+- [ ] Change default admin password
+- [ ] Generate secure JWT secret key
+- [ ] Configure firewall (ufw/iptables)
+- [ ] Set up SSL certificates
+- [ ] Enable log rotation
+- [ ] Set up backups
+- [ ] Configure monitoring
+
+For detailed production deployment instructions, see [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md).
 
 ## 🤝 Support
 

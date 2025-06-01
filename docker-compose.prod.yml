@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./admin_panel/backend
+      dockerfile: Dockerfile
+    environment:
+      - PRODUCTION=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    env_file:
+      - .env.production
+    volumes:
+      - ./order_tracking.db:/opt/email-client-cli/order_tracking.db
+      - ./logs:/opt/email-client-cli/logs
+      - ./resources:/opt/email-client-cli/resources:ro
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./admin_panel/frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${FRONTEND_API_URL:-http://localhost:8000}
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  email-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.production
+    volumes:
+      - ./order_tracking.db:/opt/email-client-cli/order_tracking.db
+      - ./logs:/opt/email-client-cli/logs
+      - ./resources:/opt/email-client-cli/resources:ro
+    restart: unless-stopped
+    depends_on:
+      - backend

@@ -1,0 +1,25 @@
+[Unit]
+Description=Email Admin Panel - Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=emailbot
+Group=emailbot
+WorkingDirectory=/opt/email-client-cli/admin_panel/backend
+Environment="PATH=/opt/email-client-cli/admin_panel/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PRODUCTION=true"
+EnvironmentFile=/opt/email-client-cli/.env.production
+ExecStart=/opt/email-client-cli/admin_panel/backend/venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --access-logfile /opt/email-client-cli/logs/admin_backend_access.log --error-logfile /opt/email-client-cli/logs/admin_backend_error.log
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/email-client-cli/order_tracking.db /opt/email-client-cli/logs
+
+[Install]
+WantedBy=multi-user.target

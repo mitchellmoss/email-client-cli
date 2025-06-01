@@ -1,0 +1,26 @@
+[Unit]
+Description=Email Client CLI - Order Processor
+After=network.target
+
+[Service]
+Type=simple
+User=emailbot
+Group=emailbot
+WorkingDirectory=/opt/email-client-cli
+Environment="PATH=/opt/email-client-cli/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/email-client-cli/.env.production
+ExecStart=/opt/email-client-cli/venv/bin/python /opt/email-client-cli/main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/opt/email-client-cli/logs/email_processor.log
+StandardError=append:/opt/email-client-cli/logs/email_processor_error.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/email-client-cli/order_tracking.db /opt/email-client-cli/logs
+
+[Install]
+WantedBy=multi-user.target

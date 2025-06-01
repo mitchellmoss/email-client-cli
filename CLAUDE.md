@@ -821,7 +821,69 @@ start_all.bat       # Windows
 # or Ctrl+C in the startup terminal
 ```
 
+## Production Deployment
+
+### Overview
+The project is production-ready with comprehensive configuration for Linux server deployment. All components support configurable URLs and domains.
+
+### Production Files Added
+1. **`.env.production.example`** - Production environment template
+2. **`admin_panel/backend/config.py`** - Dynamic CORS and URL configuration
+3. **`admin_panel/frontend/.env.production`** - Frontend API URL config
+4. **Docker Configuration**:
+   - `Dockerfile` - Main email processor
+   - `admin_panel/backend/Dockerfile` - API server
+   - `admin_panel/frontend/Dockerfile` - React frontend
+   - `docker-compose.prod.yml` - Orchestration
+5. **Systemd Services**:
+   - `deploy/systemd/email-processor.service`
+   - `deploy/systemd/email-admin-backend.service`
+6. **Nginx Configuration**:
+   - `deploy/nginx/email-admin.conf` - Full HTTPS setup
+7. **Deployment Scripts**:
+   - `deploy/deploy.sh` - Automated deployment
+   - `deploy/setup-ssl.sh` - Let's Encrypt SSL
+8. **`PRODUCTION_DEPLOYMENT.md`** - Comprehensive deployment guide
+
+### Key Production Features
+- **Configurable URLs**: Frontend and backend URLs can be set via environment
+- **Dynamic CORS**: Automatically configured based on frontend URL
+- **Security Hardening**: Production validates secrets, enforces HTTPS
+- **Multiple Deployment Options**: Docker, systemd, or manual
+- **SSL/TLS Ready**: Nginx config with Let's Encrypt integration
+- **Health Checks**: Built-in monitoring endpoints
+- **Log Management**: Centralized logging with rotation
+
+### Quick Production Deploy
+```bash
+# On Linux server
+git clone <repo>
+cd email-client-cli
+cp .env.production.example .env.production
+# Edit .env.production with your settings
+
+# Deploy
+export DOMAIN=your-domain.com
+export FRONTEND_API_URL=https://api.your-domain.com
+sudo ./deploy/deploy.sh
+sudo ./deploy/setup-ssl.sh
+```
+
+### URL Configuration
+- **Backend CORS**: Set via `FRONTEND_URL` and `CORS_ORIGINS` in `.env.production`
+- **Frontend API**: Set via `VITE_API_URL` at build time or in `.env.production`
+- **Nginx Routing**: Handles `/api/` proxy to backend, serves frontend static files
+
+See `PRODUCTION_DEPLOYMENT.md` for detailed instructions.
+
 ## Recent Updates & Version History
+
+### Version 2.2.0 (January 2025)
+- Added production deployment configuration
+- Implemented configurable URLs for frontend/backend
+- Added Docker and systemd deployment options
+- Created automated deployment scripts
+- Enhanced security for production environments
 
 ### Version 2.1.0 (May 2024)
 - Added order tracking database to prevent duplicate sends
