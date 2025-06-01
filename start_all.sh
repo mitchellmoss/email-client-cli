@@ -16,6 +16,34 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Function to get machine IP address
+get_ip() {
+    # Try different methods to get IP
+    if command -v ip >/dev/null 2>&1; then
+        # Linux with ip command
+        ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1
+    elif command -v ifconfig >/dev/null 2>&1; then
+        # macOS/BSD or older Linux
+        ifconfig | grep -E "inet\s" | grep -v '127.0.0.1' | awk '{print $2}' | sed 's/addr://' | head -1
+    elif command -v hostname >/dev/null 2>&1; then
+        # Fallback using hostname
+        hostname -I 2>/dev/null | awk '{print $1}' || hostname -i 2>/dev/null | grep -v '127.0.0.1'
+    else
+        echo "localhost"
+    fi
+}
+
+# Detect if we should use network mode
+MACHINE_IP=$(get_ip)
+USE_NETWORK_MODE=false
+
+# Check if --network flag is passed or if accessed from non-localhost
+if [[ "$1" == "--network" ]] || [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; then
+    USE_NETWORK_MODE=true
+    print_status "Network mode enabled - services will be accessible from other machines"
+    print_status "Detected IP address: $MACHINE_IP"
+fi
+
 # Function to print colored output
 print_status() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
@@ -161,6 +189,13 @@ print_status "Python path: $(which python)"
 export PYTHONPATH="$(pwd):$(pwd)/../..:${PYTHONPATH}"
 print_status "PYTHONPATH set to: $PYTHONPATH"
 
+# Set CORS origins for network access
+if [ "$USE_NETWORK_MODE" = true ]; then
+    export CORS_ORIGINS="http://${MACHINE_IP}:5173,http://localhost:5173,http://127.0.0.1:5173"
+    export FRONTEND_URL="http://${MACHINE_IP}:5173"
+    print_status "CORS configured for network access: $CORS_ORIGINS"
+fi
+
 # Debug: Test imports before starting
 print_status "Testing Python imports..."
 ./venv/bin/python -c "import sys; print('sys.path:', sys.path)" > "$LOG_DIR/backend_import_test.log" 2>&1
@@ -234,6 +269,15 @@ export function cn(...inputs: ClassValue[]) {
 EOF
 fi
 
+# Configure frontend for network access
+if [ "$USE_NETWORK_MODE" = true ]; then
+    print_status "Configuring frontend for network access..."
+    cat > .env.local << EOF
+VITE_API_URL=http://${MACHINE_IP}:8000
+EOF
+    print_status "Frontend API URL set to: http://${MACHINE_IP}:8000"
+fi
+
 # Clear any potentially conflicting NODE_PATH
 unset NODE_PATH
 
@@ -255,8 +299,18 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 echo "🚀 Services:"
 echo "   📧 Email Processor: Running (checking every 5 minutes)"
-echo "   🔧 Admin Backend:   http://localhost:8000 (API docs: http://localhost:8000/docs)"
-echo "   🌐 Admin Frontend:  http://localhost:5173"
+if [ "$USE_NETWORK_MODE" = true ]; then
+    echo "   🔧 Admin Backend:   http://${MACHINE_IP}:8000 (API docs: http://${MACHINE_IP}:8000/docs)"
+    echo "   🌐 Admin Frontend:  http://${MACHINE_IP}:5173"
+    echo ""
+    echo "   📱 Local Access:    http://localhost:5173"
+    echo "   🌐 Network Access:  http://${MACHINE_IP}:5173"
+else
+    echo "   🔧 Admin Backend:   http://localhost:8000 (API docs: http://localhost:8000/docs)"
+    echo "   🌐 Admin Frontend:  http://localhost:5173"
+    echo ""
+    echo "   💡 Tip: Use './start_all.sh --network' to enable access from other devices"
+fi
 echo ""
 echo "📋 Default Login:"
 echo "   Email:    admin@example.com"
