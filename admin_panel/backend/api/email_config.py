@@ -7,25 +7,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv, set_key
 
-try:
-    from ..database import get_db
-except ImportError:
-    from database import get_db
-
-try:
-    from ..auth import get_current_active_user
-except ImportError:
-    from auth import get_current_active_user
-
-try:
-    from ..models.user import User
-except ImportError:
-    from models.user import User
-
-try:
-    from ..config import settings
-except ImportError:
-    from config import settings
+from database import get_db
+from auth import get_current_active_user
+from models.user import User
+from config import settings
 
 router = APIRouter()
 
