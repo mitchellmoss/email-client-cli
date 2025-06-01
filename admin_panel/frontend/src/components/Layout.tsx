@@ -5,9 +5,7 @@ import {
   Package, 
   ShoppingCart, 
   Settings, 
-  LogOut,
-  BarChart3,
-  Mail
+  LogOut
 } from 'lucide-react';
 
 const navigation = [

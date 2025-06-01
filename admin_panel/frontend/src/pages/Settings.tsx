@@ -81,7 +81,7 @@ export default function Settings() {
     refetchInterval: 5000
   });
 
-  const { data: templates, isLoading: templatesLoading } = useQuery({
+  const { data: templates } = useQuery({
     queryKey: ['emailTemplates'],
     queryFn: () => api.get('/email-templates').then(res => res.data)
   });
