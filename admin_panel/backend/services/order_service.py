@@ -23,10 +23,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-try:
-    from ..config import settings
-except ImportError:
-    from config import settings
+from config import settings
 
 
 class OrderService:
