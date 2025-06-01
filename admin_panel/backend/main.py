@@ -4,27 +4,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import sys
+import os
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Add parent directories to path for imports
+current_dir = Path(__file__).parent
+project_root = current_dir.parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(current_dir))
 
-try:
-    # Try relative imports first (for package execution)
-    from .config import settings
-    from .database import engine, Base
-    from .api import auth, orders, products, email_config, analytics, system, email_templates
-    from .models import user as user_models
-    from .auth import get_password_hash
-    from .database import get_db_session
-except ImportError:
-    # Fall back to absolute imports (for direct execution)
-    from config import settings
-    from database import engine, Base
-    from api import auth, orders, products, email_config, analytics, system, email_templates
-    from models import user as user_models
-    from auth import get_password_hash
-    from database import get_db_session
+# Now import with absolute paths
+from config import settings
+from database import engine, Base
+from api import auth, orders, products, email_config, analytics, system, email_templates
+from models import user as user_models
+from auth import get_password_hash
+from database import get_db_session
 
 
 @asynccontextmanager
@@ -35,10 +30,7 @@ async def lifespan(app: FastAPI):
     
     # Create default admin user if not exists
     with get_db_session() as db:
-        try:
-            from .models.user import User
-        except ImportError:
-            from models.user import User
+        from models.user import User
         admin = db.query(User).filter(User.email == settings.admin_email).first()
         if not admin:
             admin = User(
