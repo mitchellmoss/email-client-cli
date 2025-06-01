@@ -210,14 +210,35 @@ print_status "Starting admin panel frontend..."
 
 cd "$SCRIPT_DIR/admin_panel/frontend"
 
+# Debug: Show current directory
+print_status "Frontend directory: $(pwd)"
+
 # Check if node_modules exists
 if [ ! -d "node_modules" ]; then
     print_warning "Node modules not found. Installing dependencies..."
     npm install --silent
 fi
 
-# Start Vite dev server
-npm run dev -- --host 0.0.0.0 > "$LOG_DIR/admin_frontend.log" 2>&1 &
+# Check if src/lib/utils.ts exists
+if [ ! -f "src/lib/utils.ts" ]; then
+    print_error "Missing src/lib/utils.ts file!"
+    print_status "Creating missing utils file..."
+    mkdir -p src/lib
+    cat > src/lib/utils.ts << 'EOF'
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+EOF
+fi
+
+# Clear any potentially conflicting NODE_PATH
+unset NODE_PATH
+
+# Start Vite dev server with explicit working directory
+(cd "$SCRIPT_DIR/admin_panel/frontend" && npm run dev -- --host 0.0.0.0) > "$LOG_DIR/admin_frontend.log" 2>&1 &
 FRONTEND_PID=$!
 print_success "Admin frontend starting (PID: $FRONTEND_PID)"
 
