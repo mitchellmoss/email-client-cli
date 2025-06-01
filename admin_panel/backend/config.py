@@ -51,8 +51,28 @@ class Settings(BaseSettings):
             
             return origins if origins else ["http://localhost:3000", "http://localhost:5173"]
         else:
-            # In development, use localhost
-            return ["http://localhost:3000", "http://localhost:5173"]
+            # In development, allow localhost and local network access
+            origins = [
+                "http://localhost:3000", 
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+            ]
+            
+            # Add support for local network IPs (common ranges)
+            # This allows any IP in the 192.168.x.x range to connect
+            origins.extend([
+                f"http://192.168.{i}.{j}:5173" 
+                for i in range(0, 5) 
+                for j in range(1, 255)
+            ][:100])  # Limit to prevent too many origins
+            
+            # Also check for specific CORS_ORIGINS in dev
+            dev_origins = os.getenv("CORS_ORIGINS", "")
+            if dev_origins:
+                origins.extend([origin.strip() for origin in dev_origins.split(",") if origin.strip()])
+            
+            return origins
     
     # Admin user (for initial setup)
     admin_email: str = os.getenv("ADMIN_EMAIL", "admin@example.com")
