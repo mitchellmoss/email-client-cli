@@ -59,18 +59,30 @@ class Settings(BaseSettings):
                 "http://127.0.0.1:5173"
             ]
             
-            # Add support for local network IPs (common ranges)
-            # This allows any IP in the 192.168.x.x range to connect
-            origins.extend([
-                f"http://192.168.{i}.{j}:5173" 
-                for i in range(0, 5) 
-                for j in range(1, 255)
-            ][:100])  # Limit to prevent too many origins
+            # Add support for dynamically configured CORS origins from environment
+            env_origins = os.getenv("CORS_ORIGINS", "")
+            if env_origins:
+                # Parse comma-separated origins from environment
+                for origin in env_origins.split(","):
+                    origin = origin.strip()
+                    if origin and origin not in origins:
+                        origins.append(origin)
             
-            # Also check for specific CORS_ORIGINS in dev
-            dev_origins = os.getenv("CORS_ORIGINS", "")
-            if dev_origins:
-                origins.extend([origin.strip() for origin in dev_origins.split(",") if origin.strip()])
+            # If no environment CORS set, add common local network ranges
+            if not env_origins:
+                # Add support for common local network IP ranges
+                # 192.168.x.x range
+                for subnet in [0, 1, 100, 131]:  # Common subnets including yours
+                    origins.extend([
+                        f"http://192.168.{subnet}.{j}:5173" 
+                        for j in range(1, 255)
+                    ][:50])  # Limit per subnet
+                
+                # 10.x.x.x range (common for some local networks)
+                origins.extend([
+                    f"http://10.0.0.{j}:5173" 
+                    for j in range(1, 255)
+                ][:50])
             
             return origins
     
