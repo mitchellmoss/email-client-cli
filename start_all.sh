@@ -16,6 +16,11 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
 # Function to get machine IP address
 get_ip() {
     # Try different methods to get IP
@@ -43,11 +48,6 @@ if [[ "$1" == "--network" ]] || [[ -n "$SSH_CLIENT" ]] || [[ -n "$SSH_TTY" ]]; t
     print_status "Network mode enabled - services will be accessible from other machines"
     print_status "Detected IP address: $MACHINE_IP"
 fi
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
-}
 
 print_success() {
     echo -e "${GREEN}✓${NC} $1"
