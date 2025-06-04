@@ -44,6 +44,10 @@ export function EditOrderModal({ order, open, onOpenChange }: EditOrderModalProp
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<Partial<Order>>({});
   const [jsonErrors, setJsonErrors] = useState<{ tileware_products?: string; order_data?: string }>({});
+  const [jsonStrings, setJsonStrings] = useState<{ tileware_products: string; order_data: string }>({
+    tileware_products: '',
+    order_data: ''
+  });
 
   useEffect(() => {
     if (order) {
@@ -57,6 +61,10 @@ export function EditOrderModal({ order, open, onOpenChange }: EditOrderModalProp
         tileware_products: order.tileware_products,
         order_data: order.order_data,
         original_html: order.original_html,
+      });
+      setJsonStrings({
+        tileware_products: formatJson(order.tileware_products),
+        order_data: formatJson(order.order_data)
       });
       setJsonErrors({});
     }
@@ -102,27 +110,73 @@ export function EditOrderModal({ order, open, onOpenChange }: EditOrderModalProp
     },
   });
 
+  const validateAllJson = () => {
+    // Validate both JSON fields before saving
+    let hasErrors = false;
+    ['tileware_products', 'order_data'].forEach((field) => {
+      const typedField = field as 'tileware_products' | 'order_data';
+      handleJsonBlur(typedField);
+      if (jsonErrors[typedField]) {
+        hasErrors = true;
+      }
+    });
+    return !hasErrors;
+  };
+
   const handleSave = () => {
     if (!order) return;
-    updateMutation.mutate({ orderId: order.order_id, updates: formData });
+    
+    // Ensure JSON is validated before saving
+    handleJsonBlur('tileware_products');
+    handleJsonBlur('order_data');
+    
+    // Small delay to ensure state updates
+    setTimeout(() => {
+      if (!jsonErrors.tileware_products && !jsonErrors.order_data) {
+        updateMutation.mutate({ orderId: order.order_id, updates: formData });
+      }
+    }, 100);
   };
 
   const handleSaveAndResend = async () => {
     if (!order) return;
-    try {
-      await updateMutation.mutateAsync({ orderId: order.order_id, updates: formData });
-      await resendMutation.mutateAsync(order.order_id);
-      onOpenChange(false);
-    } catch (error) {
-      // Errors are handled by the mutations
-    }
+    
+    // Ensure JSON is validated before saving
+    handleJsonBlur('tileware_products');
+    handleJsonBlur('order_data');
+    
+    // Small delay to ensure state updates
+    setTimeout(async () => {
+      if (!jsonErrors.tileware_products && !jsonErrors.order_data) {
+        try {
+          await updateMutation.mutateAsync({ orderId: order.order_id, updates: formData });
+          await resendMutation.mutateAsync(order.order_id);
+          onOpenChange(false);
+        } catch (error) {
+          // Errors are handled by the mutations
+        }
+      }
+    }, 100);
   };
 
   const handleJsonChange = (field: 'tileware_products' | 'order_data', value: string) => {
+    // Update the string value immediately for smooth typing
+    setJsonStrings({ ...jsonStrings, [field]: value });
+  };
+
+  const handleJsonBlur = (field: 'tileware_products' | 'order_data') => {
+    // Validate and parse JSON only when user finishes editing
+    const value = jsonStrings[field];
     try {
-      const parsed = JSON.parse(value);
-      setFormData({ ...formData, [field]: parsed });
-      setJsonErrors({ ...jsonErrors, [field]: undefined });
+      if (value.trim() === '') {
+        // Allow empty string to represent null or empty array
+        setFormData({ ...formData, [field]: field === 'tileware_products' ? [] : null });
+        setJsonErrors({ ...jsonErrors, [field]: undefined });
+      } else {
+        const parsed = JSON.parse(value);
+        setFormData({ ...formData, [field]: parsed });
+        setJsonErrors({ ...jsonErrors, [field]: undefined });
+      }
     } catch (e) {
       setJsonErrors({ ...jsonErrors, [field]: 'Invalid JSON format' });
     }
@@ -231,12 +285,17 @@ export function EditOrderModal({ order, open, onOpenChange }: EditOrderModalProp
               <Textarea
                 id="tileware_products"
                 rows={8}
-                value={formatJson(formData.tileware_products)}
+                value={jsonStrings.tileware_products}
                 onChange={(e) => handleJsonChange('tileware_products', e.target.value)}
+                onBlur={() => handleJsonBlur('tileware_products')}
                 className="font-mono text-sm"
+                placeholder='[]'
               />
               {jsonErrors.tileware_products && (
                 <p className="text-sm text-destructive">{jsonErrors.tileware_products}</p>
+              )}
+              {!jsonErrors.tileware_products && (
+                <p className="text-sm text-muted-foreground">JSON validation occurs when you click outside the field</p>
               )}
             </div>
             <div className="space-y-2">
@@ -244,12 +303,17 @@ export function EditOrderModal({ order, open, onOpenChange }: EditOrderModalProp
               <Textarea
                 id="order_data"
                 rows={12}
-                value={formatJson(formData.order_data)}
+                value={jsonStrings.order_data}
                 onChange={(e) => handleJsonChange('order_data', e.target.value)}
+                onBlur={() => handleJsonBlur('order_data')}
                 className="font-mono text-sm"
+                placeholder='null or {}'
               />
               {jsonErrors.order_data && (
                 <p className="text-sm text-destructive">{jsonErrors.order_data}</p>
+              )}
+              {!jsonErrors.order_data && (
+                <p className="text-sm text-muted-foreground">JSON validation occurs when you click outside the field</p>
               )}
             </div>
           </TabsContent>
