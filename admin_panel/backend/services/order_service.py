@@ -386,3 +386,164 @@ class OrderService:
                 f.write(f"Error resending Laticrete order {order.get('order_id')}: {e}\n")
                 f.write(traceback.format_exc())
             return False
+    
+    def get_failed_orders(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get list of failed orders."""
+        query = """
+            SELECT 
+                id,
+                order_id,
+                email_subject,
+                sent_at,
+                sent_to,
+                customer_name,
+                tileware_products,
+                laticrete_products,
+                order_total,
+                order_data,
+                created_at,
+                status,
+                error_message,
+                product_type
+            FROM sent_orders
+            WHERE status = 'failed'
+            ORDER BY created_at DESC 
+            LIMIT :limit OFFSET :skip
+        """
+        
+        result = self.db.execute(text(query), {"limit": limit, "skip": skip})
+        
+        orders = []
+        for row in result:
+            order = dict(row._mapping)
+            # Parse JSON fields
+            for field in ['tileware_products', 'laticrete_products', 'order_data']:
+                if order.get(field):
+                    try:
+                        order[field] = json.loads(order[field])
+                    except json.JSONDecodeError:
+                        order[field] = None
+            orders.append(order)
+        
+        return orders
+    
+    def retry_failed_order(self, order_id: str) -> bool:
+        """Retry processing a failed order."""
+        try:
+            # Get the failed order details
+            order = self.get_order_detail(order_id)
+            if not order or order.get('status') != 'failed':
+                logger.error(f"Order {order_id} not found or not in failed status")
+                return False
+            
+            # Import required processors
+            sys.path.append(str(Path(__file__).parent.parent.parent.parent))
+            from src.claude_processor import ClaudeProcessor
+            from src.laticrete_processor import LatricreteProcessor
+            
+            # Determine product type
+            product_type = order.get('product_type', '')
+            
+            if product_type == 'laticrete' or order_id.startswith('LAT-'):
+                # Process as Laticrete order
+                processor = LatricreteProcessor()
+                order_data = order.get('order_data', {})
+                if isinstance(order_data, str):
+                    order_data = json.loads(order_data)
+                
+                success = processor.process_order(order_data)
+                
+                if success:
+                    # Update order status to sent
+                    self.order_tracker.update_order_status(
+                        order_id, 
+                        'sent', 
+                        sent_to=os.getenv('LATICRETE_CS_EMAIL')
+                    )
+                    logger.info(f"Successfully reprocessed Laticrete order {order_id}")
+                else:
+                    logger.error(f"Failed to reprocess Laticrete order {order_id}")
+                
+                return success
+                
+            else:
+                # Process as TileWare order
+                # Reconstruct and send the order
+                order_data = order.get('order_data', {})
+                if isinstance(order_data, str):
+                    order_data = json.loads(order_data)
+                
+                # Format and send
+                formatter = OrderFormatter()
+                formatted_order = formatter.format_order(order_data)
+                
+                sender = EmailSender(
+                    smtp_server=os.getenv('SMTP_SERVER'),
+                    smtp_port=int(os.getenv('SMTP_PORT', 587)),
+                    username=os.getenv('SMTP_USERNAME'),
+                    password=os.getenv('SMTP_PASSWORD')
+                )
+                
+                success = sender.send_order_to_cs(
+                    recipient=os.getenv('CS_EMAIL'),
+                    order_text=formatted_order,
+                    original_order_id=order_id.replace('TW-', '')
+                )
+                
+                if success:
+                    # Update order status to sent
+                    self.order_tracker.update_order_status(
+                        order_id, 
+                        'sent', 
+                        sent_to=os.getenv('CS_EMAIL')
+                    )
+                    logger.info(f"Successfully reprocessed TileWare order {order_id}")
+                else:
+                    logger.error(f"Failed to reprocess TileWare order {order_id}")
+                    
+                return success
+                
+        except Exception as e:
+            logger.error(f"Error retrying failed order {order_id}: {e}", exc_info=True)
+            return False
+    
+    def mark_order_resolved(self, order_id: str, resolution_note: Optional[str], user_email: str) -> bool:
+        """Mark a failed order as resolved manually."""
+        try:
+            # Update order status to resolved
+            update_query = """
+                UPDATE sent_orders 
+                SET status = 'resolved',
+                    error_message = COALESCE(:resolution_note, error_message)
+                WHERE order_id = :order_id
+            """
+            
+            self.db.execute(
+                text(update_query), 
+                {
+                    "order_id": order_id,
+                    "resolution_note": resolution_note
+                }
+            )
+            
+            # Log the resolution
+            audit_details = {
+                "user": user_email,
+                "action": "manually_resolved",
+                "resolution_note": resolution_note,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            self.order_tracker._log_action(
+                order_id,
+                "resolved",
+                json.dumps(audit_details)
+            )
+            
+            self.db.commit()
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error marking order {order_id} as resolved: {e}")
+            return False

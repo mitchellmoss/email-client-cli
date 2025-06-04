@@ -44,13 +44,37 @@ class OrderTracker:
                     order_total TEXT,
                     formatted_content TEXT,
                     email_uid TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'sent',
+                    error_message TEXT,
+                    raw_email_content TEXT,
+                    product_type TEXT,
+                    laticrete_products TEXT,
+                    order_data TEXT
                 )
             """)
             
             # Create indexes for performance
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_id ON sent_orders(order_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON sent_orders(created_at)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON sent_orders(status)")
+            
+            # Add new columns to existing tables if they don't exist
+            cursor.execute("PRAGMA table_info(sent_orders)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'status' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN status TEXT DEFAULT 'sent'")
+            if 'error_message' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN error_message TEXT")
+            if 'raw_email_content' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN raw_email_content TEXT")
+            if 'product_type' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN product_type TEXT")
+            if 'laticrete_products' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN laticrete_products TEXT")
+            if 'order_data' not in columns:
+                cursor.execute("ALTER TABLE sent_orders ADD COLUMN order_data TEXT")
             
             # Create processing log table
             cursor.execute("""
@@ -350,3 +374,162 @@ class OrderTracker:
             except Exception as e:
                 logger.error(f"Error cleaning up old records: {e}")
                 return 0
+                
+    def save_failed_order(self, order_id: str, email_data: Dict[str, Any], 
+                         error_message: str, product_type: str = None,
+                         partial_order_data: Dict[str, Any] = None) -> bool:
+        """
+        Save a failed order for later processing.
+        
+        Args:
+            order_id: The order ID
+            email_data: Email metadata (subject, body, uid)
+            error_message: Error that prevented processing
+            product_type: Type of products (tileware/laticrete/both)
+            partial_order_data: Any partially extracted order data
+            
+        Returns:
+            True if successfully saved, False otherwise
+        """
+        with self._lock:
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    
+                    # Check if order already exists
+                    cursor.execute("SELECT id FROM sent_orders WHERE order_id = ?", (order_id,))
+                    if cursor.fetchone():
+                        logger.warning(f"Order {order_id} already exists in database")
+                        return False
+                    
+                    # Prepare data
+                    order_data_json = json.dumps(partial_order_data) if partial_order_data else None
+                    
+                    cursor.execute("""
+                        INSERT INTO sent_orders (
+                            order_id, email_subject, sent_to, status,
+                            error_message, raw_email_content, email_uid,
+                            product_type, order_data, customer_name
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        order_id,
+                        email_data.get('subject', ''),
+                        'pending',  # sent_to is 'pending' for failed orders
+                        'failed',
+                        error_message,
+                        email_data.get('body', ''),
+                        email_data.get('uid', ''),
+                        product_type,
+                        order_data_json,
+                        partial_order_data.get('customer_name', '') if partial_order_data else ''
+                    ))
+                    
+                    conn.commit()
+                    
+                    self._log_action(order_id, "failed_save", f"Order saved as failed: {error_message}")
+                    logger.info(f"Failed order {order_id} saved for later processing")
+                    return True
+                    
+            except Exception as e:
+                logger.error(f"Error saving failed order {order_id}: {e}")
+                return False
+                
+    def get_failed_orders(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get list of failed orders that need processing.
+        
+        Args:
+            limit: Maximum number of orders to return
+            
+        Returns:
+            List of failed order dictionaries
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT * FROM sent_orders 
+                    WHERE status = 'failed'
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (limit,))
+                
+                orders = []
+                for row in cursor.fetchall():
+                    order = dict(row)
+                    # Parse JSON fields
+                    if order.get('order_data'):
+                        try:
+                            order['order_data'] = json.loads(order['order_data'])
+                        except:
+                            pass
+                    if order.get('tileware_products'):
+                        try:
+                            order['tileware_products'] = json.loads(order['tileware_products'])
+                        except:
+                            pass
+                    if order.get('laticrete_products'):
+                        try:
+                            order['laticrete_products'] = json.loads(order['laticrete_products'])
+                        except:
+                            pass
+                    orders.append(order)
+                    
+                return orders
+                
+        except Exception as e:
+            logger.error(f"Error retrieving failed orders: {e}")
+            return []
+            
+    def update_order_status(self, order_id: str, status: str, 
+                           sent_to: str = None, error_message: str = None) -> bool:
+        """
+        Update the status of an order.
+        
+        Args:
+            order_id: The order ID
+            status: New status (sent/failed/pending)
+            sent_to: Email recipient (for sent status)
+            error_message: Error message (for failed status)
+            
+        Returns:
+            True if successfully updated, False otherwise
+        """
+        with self._lock:
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    
+                    update_fields = ["status = ?"]
+                    update_values = [status]
+                    
+                    if sent_to:
+                        update_fields.append("sent_to = ?")
+                        update_values.append(sent_to)
+                        update_fields.append("sent_at = CURRENT_TIMESTAMP")
+                        
+                    if error_message:
+                        update_fields.append("error_message = ?")
+                        update_values.append(error_message)
+                        
+                    update_values.append(order_id)
+                    
+                    cursor.execute(f"""
+                        UPDATE sent_orders 
+                        SET {', '.join(update_fields)}
+                        WHERE order_id = ?
+                    """, update_values)
+                    
+                    conn.commit()
+                    
+                    if cursor.rowcount > 0:
+                        self._log_action(order_id, "status_update", f"Status changed to {status}")
+                        logger.info(f"Order {order_id} status updated to {status}")
+                        return True
+                    else:
+                        logger.warning(f"Order {order_id} not found for status update")
+                        return False
+                        
+            except Exception as e:
+                logger.error(f"Error updating order {order_id} status: {e}")
+                return False

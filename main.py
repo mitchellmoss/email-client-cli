@@ -7,6 +7,7 @@ Main entry point for the email processing application.
 import os
 import sys
 import logging
+import re
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler
 from datetime import datetime
@@ -104,14 +105,21 @@ class EmailProcessor:
     
     def _process_tileware_order(self, email_data):
         """Process TileWare products from the email."""
+        order_id = None
         try:
+            # Extract order ID from email subject if possible
+            subject = email_data.get('subject', '')
+            order_match = re.search(r'order.*\((\d+)\)', subject, re.IGNORECASE)
+            if order_match:
+                order_id = order_match.group(1)
+                
             # Use Claude to extract TileWare order details
             order_details = self.claude_processor.extract_order_details(
                 email_data['html'], product_type="tileware"
             )
             
             if order_details and self.claude_processor.validate_extraction(order_details, "tileware"):
-                order_id = order_details.get('order_id', 'Unknown')
+                order_id = order_details.get('order_id', order_id or 'Unknown')
                 
                 # Check if order has already been sent
                 is_sent, existing_order = self.order_tracker.has_order_been_sent(f"TW-{order_id}")
@@ -143,18 +151,51 @@ class EmailProcessor:
                         logger.warning(f"TileWare order {order_id} sent but failed to track in database")
                 else:
                     logger.error(f"Failed to send TileWare order {order_id} to CS")
+                    # Save failed order to database
+                    if order_id and order_id != 'Unknown':
+                        self.order_tracker.save_failed_order(
+                            order_id=f"TW-{order_id}",
+                            email_data=email_data,
+                            error_message="Failed to send order to CS",
+                            product_type="tileware",
+                            partial_order_data=order_details
+                        )
             else:
                 logger.warning(f"Failed to extract TileWare order details from email: {email_data['subject']}")
+                # Save failed order if we have an order ID
+                if order_id:
+                    self.order_tracker.save_failed_order(
+                        order_id=f"TW-{order_id}",
+                        email_data=email_data,
+                        error_message="Failed to extract order details",
+                        product_type="tileware",
+                        partial_order_data=order_details if order_details else {}
+                    )
                 
         except Exception as e:
             logger.error(f"Error processing TileWare order: {str(e)}")
+            # Save failed order if we have an order ID
+            if order_id:
+                self.order_tracker.save_failed_order(
+                    order_id=f"TW-{order_id}",
+                    email_data=email_data,
+                    error_message=f"Exception during processing: {str(e)}",
+                    product_type="tileware"
+                )
     
     def _process_laticrete_order(self, email_data):
         """Process Laticrete products from the email."""
+        order_id = None
         try:
             if not self.laticrete_cs_email:
                 logger.warning("LATICRETE_CS_EMAIL not configured, skipping Laticrete order processing")
                 return
+                
+            # Extract order ID from email subject if possible
+            subject = email_data.get('subject', '')
+            order_match = re.search(r'order.*\((\d+)\)', subject, re.IGNORECASE)
+            if order_match:
+                order_id = order_match.group(1)
                 
             # Use Claude to extract Laticrete order details
             order_details = self.claude_processor.extract_order_details(
@@ -162,7 +203,7 @@ class EmailProcessor:
             )
             
             if order_details and self.claude_processor.validate_extraction(order_details, "laticrete"):
-                order_id = order_details.get('order_id', 'Unknown')
+                order_id = order_details.get('order_id', order_id or 'Unknown')
                 
                 # Check if order has already been sent
                 is_sent, existing_order = self.order_tracker.has_order_been_sent(f"LAT-{order_id}")
@@ -187,11 +228,37 @@ class EmailProcessor:
                         logger.warning(f"Laticrete order {order_id} sent but failed to track in database")
                 else:
                     logger.error(f"Failed to process Laticrete order {order_id}")
+                    # Save failed order to database for later processing
+                    if order_id and order_id != 'Unknown':
+                        self.order_tracker.save_failed_order(
+                            order_id=f"LAT-{order_id}",
+                            email_data=email_data,
+                            error_message="Failed to process Laticrete order",
+                            product_type="laticrete",
+                            partial_order_data=order_details
+                        )
             else:
                 logger.warning(f"Failed to extract Laticrete order details from email: {email_data['subject']}")
+                # Save failed order if we have an order ID
+                if order_id:
+                    self.order_tracker.save_failed_order(
+                        order_id=f"LAT-{order_id}",
+                        email_data=email_data,
+                        error_message="Failed to extract order details - missing required fields",
+                        product_type="laticrete",
+                        partial_order_data=order_details if order_details else {}
+                    )
                 
         except Exception as e:
             logger.error(f"Error processing Laticrete order: {str(e)}")
+            # Save failed order if we have an order ID
+            if order_id:
+                self.order_tracker.save_failed_order(
+                    order_id=f"LAT-{order_id}",
+                    email_data=email_data,
+                    error_message=f"Exception during processing: {str(e)}",
+                    product_type="laticrete"
+                )
 
 
 def main():

@@ -134,3 +134,48 @@ async def delete_order(
         raise HTTPException(status_code=404, detail="Order not found")
     
     return {"message": "Order deleted successfully"}
+
+
+@router.get("/failed/list", response_model=List[OrderResponse])
+async def get_failed_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get list of failed orders that need attention."""
+    service = OrderService(db)
+    return service.get_failed_orders(skip=skip, limit=limit)
+
+
+@router.post("/{order_id}/retry")
+async def retry_failed_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Retry processing a failed order."""
+    service = OrderService(db)
+    success = service.retry_failed_order(order_id)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to retry order processing")
+    
+    return {"message": "Order reprocessing initiated"}
+
+
+@router.post("/{order_id}/mark-resolved")
+async def mark_order_resolved(
+    order_id: str,
+    resolution_note: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Mark a failed order as resolved manually."""
+    service = OrderService(db)
+    success = service.mark_order_resolved(order_id, resolution_note, current_user.email)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to mark order as resolved")
+    
+    return {"message": "Order marked as resolved"}
