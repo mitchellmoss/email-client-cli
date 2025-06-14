@@ -186,14 +186,28 @@ class TileProDepotParser:
             text = soup.get_text()
             
             # Extract customer name
-            customer_match = re.search(r"You've received the following order from ([^:]+):", text)
-            if customer_match:
-                order_info['customer_name'] = customer_match.group(1).strip()
+            customer_patterns = [
+                r"You've received the following order from ([^:]+):",
+                r"You've received a new order from ([^:]+):",
+                r"Woo! You've received a new order from ([^:]+):"
+            ]
+            for pattern in customer_patterns:
+                customer_match = re.search(pattern, text)
+                if customer_match:
+                    order_info['customer_name'] = customer_match.group(1).strip()
+                    break
                 
             # Extract order ID
-            order_id_match = re.search(r'\[Order #(\d+)\]', text)
-            if order_id_match:
-                order_info['order_id'] = order_id_match.group(1)
+            order_id_patterns = [
+                r'\[Order #(\d+)\]',
+                r'Order #(\d+)',
+                r'#(\d+) \(.*\d{4}\)'  # Matches "#43333 (June 13, 2025)"
+            ]
+            for pattern in order_id_patterns:
+                order_id_match = re.search(pattern, text)
+                if order_id_match:
+                    order_info['order_id'] = order_id_match.group(1)
+                    break
                 
             # Extract shipping method
             shipping_patterns = [
@@ -254,25 +268,58 @@ class TileProDepotParser:
         for table in tables:
             # Check if this looks like a product table
             headers = [th.get_text().strip().lower() for th in table.find_all('th')]
-            if any(header in headers for header in ['product', 'item', 'description']):
-                rows = table.find_all('tr')[1:]  # Skip header row
+            
+            # Also check if table contains product-like content even without headers
+            table_text = table.get_text()
+            has_product_content = any(pattern in table_text for pattern in ['TileWare', 'Laticrete', '$', '×'])
+            
+            if any(header in headers for header in ['product', 'item', 'description']) or has_product_content:
+                rows = table.find_all('tr')
+                # Skip header row only if headers exist
+                if headers:
+                    rows = rows[1:]
                 
                 for row in rows:
                     cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 2:  # At least product and quantity
-                        product_text = cells[0].get_text().strip()
+                    if len(cells) >= 2:  # At least 2 cells
+                        # Find the cell containing the product name
+                        product_cell_idx = -1
+                        product_text = ""
                         
-                        # Check if this is a TileWare or Laticrete product
-                        is_tileware = any(re.search(pattern, product_text, re.IGNORECASE) 
-                                        for pattern in self.tileware_patterns)
-                        is_laticrete = any(re.search(pattern, product_text, re.IGNORECASE) 
-                                         for pattern in self.laticrete_patterns)
+                        for idx, cell in enumerate(cells):
+                            cell_text = cell.get_text().strip()
+                            # Check if this cell contains TileWare or Laticrete
+                            if any(re.search(pattern, cell_text, re.IGNORECASE) 
+                                   for pattern in self.tileware_patterns + self.laticrete_patterns):
+                                product_cell_idx = idx
+                                product_text = cell_text
+                                break
                         
-                        if is_tileware or is_laticrete:
+                        if product_cell_idx >= 0:
+                            # Check if this is a TileWare or Laticrete product
+                            is_tileware = any(re.search(pattern, product_text, re.IGNORECASE) 
+                                            for pattern in self.tileware_patterns)
+                            is_laticrete = any(re.search(pattern, product_text, re.IGNORECASE) 
+                                             for pattern in self.laticrete_patterns)
+                            
+                            # Extract quantity and price from remaining cells
+                            quantity = '1'
+                            price = ''
+                            
+                            for idx, cell in enumerate(cells):
+                                if idx != product_cell_idx:
+                                    cell_text = cell.get_text().strip()
+                                    # Check for quantity pattern (×N or xN)
+                                    if re.match(r'[×x]\d+', cell_text):
+                                        quantity = cell_text.replace('×', '').replace('x', '').strip()
+                                    # Check for price pattern
+                                    elif '$' in cell_text:
+                                        price = cell_text
+                            
                             product = {
                                 'name': product_text,
-                                'quantity': cells[1].get_text().strip() if len(cells) > 1 else '1',
-                                'price': cells[2].get_text().strip() if len(cells) > 2 else '',
+                                'quantity': quantity,
+                                'price': price,
                                 'type': 'tileware' if is_tileware else 'laticrete'
                             }
                             products.append(product)
