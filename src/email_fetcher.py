@@ -102,7 +102,9 @@ class EmailFetcher:
                         text_lower = text_content.lower()
                         
                         if "received the following order" in html_lower or \
-                           "received the following order" in text_lower:
+                           "received the following order" in text_lower or \
+                           "received a new order" in html_lower or \
+                           "received a new order" in text_lower:
                             
                             email_data = {
                                 'uid': msg.uid,
@@ -171,7 +173,9 @@ class EmailFetcher:
                         text_lower = text_content.lower()
                         
                         if "received the following order" in html_lower or \
-                           "received the following order" in text_lower:
+                           "received the following order" in text_lower or \
+                           "received a new order" in html_lower or \
+                           "received a new order" in text_lower:
                             
                             email_data = {
                                 'uid': msg.uid,

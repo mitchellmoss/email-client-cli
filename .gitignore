@@ -69,4 +69,4 @@ admin_panel/backend/.pytest_cache/
 admin_panel/backend/test.db
 admin_panel/frontend/node_modules/
 admin_panel/frontend/dist/
-admin_panel/frontend/.vite/
+admin_panel/frontend/.vite/node_modules/
