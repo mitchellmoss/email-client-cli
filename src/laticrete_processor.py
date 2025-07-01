@@ -210,7 +210,21 @@ class LatricreteProcessor:
             <p>
         """
         
-        address = order_data.get('shipping_address', {})
+        # Get address, falling back to billing if shipping not available
+        shipping_address = order_data.get('shipping_address', {})
+        billing_address = order_data.get('billing_address', {})
+        
+        # Use billing address if shipping is not available or empty
+        if not shipping_address or not shipping_address.get('street'):
+            if billing_address and billing_address.get('street'):
+                logger.info("Using billing address for email as shipping address not available")
+                address = billing_address
+                html_content += '<em>(Using billing address - no shipping address provided)</em><br>'
+            else:
+                address = {}
+        else:
+            address = shipping_address
+        
         html_content += f"""
                 {order_data.get('customer_name', 'N/A')}<br>
                 {address.get('street', 'N/A')}<br>
@@ -241,9 +255,12 @@ Products:
             verification = ' [NEEDS PRICE VERIFICATION]' if product.get('needs_verification') else ''
             text_content += f"- {product.get('sku', 'N/A')} | {product.get('name', 'N/A')}{verification} | Qty: {product.get('quantity', 'N/A')} | {product.get('list_price', product.get('price', 'N/A'))}\n"
         
+        # Use the same address variable that was determined for HTML
+        billing_note = '(Using billing address - no shipping address provided)\n' if address == billing_address and address else ''
+        
         text_content += f"""
 Shipping Address:
-{order_data.get('customer_name', 'N/A')}
+{billing_note}{order_data.get('customer_name', 'N/A')}
 {address.get('street', 'N/A')}
 {address.get('city', 'N/A')}, {address.get('state', 'N/A')} {address.get('zip', 'N/A')}
 

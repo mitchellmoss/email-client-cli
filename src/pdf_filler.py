@@ -305,13 +305,28 @@ class PDFOrderFormFiller:
     
     def _prepare_field_mappings(self, order_data: Dict) -> Dict[str, str]:
         """Prepare the field mappings from order data."""
+        # Get address, falling back to billing if shipping not available
+        shipping_address = order_data.get('shipping_address', {})
+        billing_address = order_data.get('billing_address', {})
+        
+        # Use billing address if shipping is not available or empty
+        if not shipping_address or not shipping_address.get('street'):
+            if billing_address and billing_address.get('street'):
+                logger.info("Using billing address for PDF as shipping address not available")
+                address = billing_address
+            else:
+                # Fallback to empty address
+                address = {}
+        else:
+            address = shipping_address
+        
         # Basic field mappings
         field_mappings = {
             'DATE': datetime.now().strftime('%m/%d/%Y'),
             'O': order_data.get('order_id', ''),
             'S 1': order_data.get('customer_name', ''),
-            'S 2': order_data.get('shipping_address', {}).get('street', ''),
-            'S 3': f"{order_data.get('shipping_address', {}).get('city', '')}, {order_data.get('shipping_address', {}).get('state', '')} {order_data.get('shipping_address', {}).get('zip', '')}",
+            'S 2': address.get('street', ''),
+            'S 3': f"{address.get('city', '')}, {address.get('state', '')} {address.get('zip', '')}",
             'S 4': '',
             'Contact name': order_data.get('customer_name', ''),
             'Phone': order_data.get('phone', ''),
@@ -347,6 +362,21 @@ class PDFOrderFormFiller:
     def _overlay_text_on_pdf(self, order_data: Dict, output_path: str) -> bool:
         """Overlay text on PDF as a fallback method."""
         try:
+            # Get address, falling back to billing if shipping not available
+            shipping_address = order_data.get('shipping_address', {})
+            billing_address = order_data.get('billing_address', {})
+            
+            # Use billing address if shipping is not available or empty
+            if not shipping_address or not shipping_address.get('street'):
+                if billing_address and billing_address.get('street'):
+                    logger.info("Using billing address for PDF overlay as shipping address not available")
+                    address = billing_address
+                else:
+                    # Fallback to empty address
+                    address = {}
+            else:
+                address = shipping_address
+            
             # Create a temporary PDF with the text
             temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
             temp_pdf.close()
@@ -367,16 +397,16 @@ class PDFOrderFormFiller:
             # Bill To section (left side)
             c.drawString(140, 585, order_data.get('customer_name', ''))
             c.drawString(100, 565, order_data.get('customer_name', ''))  # Company name
-            c.drawString(100, 550, order_data.get('shipping_address', {}).get('street', ''))
-            c.drawString(100, 535, f"{order_data.get('shipping_address', {}).get('city', '')}, {order_data.get('shipping_address', {}).get('state', '')} {order_data.get('shipping_address', {}).get('zip', '')}")
+            c.drawString(100, 550, address.get('street', ''))
+            c.drawString(100, 535, f"{address.get('city', '')}, {address.get('state', '')} {address.get('zip', '')}")
             
             # Phone number (left side - after "Tel. No.")
             c.drawString(150, 510, order_data.get('phone', ''))
             
             # Ship To section (right side)
             c.drawString(365, 585, order_data.get('customer_name', ''))
-            c.drawString(365, 565, order_data.get('shipping_address', {}).get('street', ''))
-            c.drawString(365, 550, f"{order_data.get('shipping_address', {}).get('city', '')}, {order_data.get('shipping_address', {}).get('state', '')} {order_data.get('shipping_address', {}).get('zip', '')}")
+            c.drawString(365, 565, address.get('street', ''))
+            c.drawString(365, 550, f"{address.get('city', '')}, {address.get('state', '')} {address.get('zip', '')}")
             
             # Contact name and phone (right bottom section)
             c.drawString(450, 510, order_data.get('customer_name', ''))

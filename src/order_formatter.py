@@ -59,11 +59,11 @@ class OrderFormatter:
             shipping_address = order_details.get('shipping_address', {})
             billing_address = order_details.get('billing_address', {})
             
-            # If shipping address is empty or missing key fields, try billing address
-            if not shipping_address or not shipping_address.get('street'):
-                if billing_address and billing_address.get('street'):
+            # If shipping address is empty, null, or missing key fields, try billing address
+            if not shipping_address or shipping_address is None or not shipping_address.get('street'):
+                if billing_address and billing_address is not None and billing_address.get('street'):
                     logger.info("No shipping address found, using billing address")
-                    shipping_address = billing_address
+                    shipping_address = billing_address.copy()  # Make a copy to avoid modifying original
                 else:
                     # Create minimal address from customer name if nothing else available
                     shipping_address = {'name': order_details.get('customer_name', 'Unknown Customer')}

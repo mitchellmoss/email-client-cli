@@ -274,7 +274,7 @@ Return only the formatted text, nothing else."""
             
         # Check for required fields
         product_field = f"{product_type}_products"
-        required_fields = ['customer_name', product_field, 'shipping_address']
+        required_fields = ['customer_name', product_field]
         
         for field in required_fields:
             if field not in order_details or not order_details[field]:
@@ -287,10 +287,13 @@ Return only the formatted text, nothing else."""
             logger.warning(f"No {product_type} products found")
             return False
             
-        # Validate shipping address
+        # Validate that we have either shipping or billing address
         shipping = order_details.get('shipping_address', {})
-        if not shipping.get('name') or not shipping.get('street'):
-            logger.warning("Incomplete shipping address")
+        billing = order_details.get('billing_address', {})
+        
+        if (not shipping or not shipping.get('street')) and \
+           (not billing or not billing.get('street')):
+            logger.warning("No valid shipping or billing address found")
             return False
             
         return True
